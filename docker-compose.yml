@@ -4,17 +4,16 @@ services:
   db:
     image: postgres:16-alpine
     container_name: logisched_db
-    env_file: .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sua_senha_forte_aqui}
+      POSTGRES_DB: agendamento_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - automation-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,26 +23,14 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: logisched_backend
-    env_file: .env
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - ./backend:/app
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/agendamento_db
+      SECRET_KEY: ${SECRET_KEY:-gere_uma_chave_aleatoria}
+      DEBUG: "false"
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - automation-network
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: logisched_frontend
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     networks:
       - automation-network
 
