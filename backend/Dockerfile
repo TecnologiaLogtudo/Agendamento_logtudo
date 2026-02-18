@@ -11,6 +11,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Instala dependências de sistema necessárias para compilar pacotes Python (se necessário)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir uv
 
 COPY backend/requirements.txt .
