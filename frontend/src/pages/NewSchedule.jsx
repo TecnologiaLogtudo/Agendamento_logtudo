@@ -1,0 +1,374 @@
+import { useState, useEffect } from 'react'
+import axios from 'axios'
+import { Plus, Trash2, Save, AlertCircle } from 'lucide-react'
+
+const PROFILES = [
+  { name: 'HR', weight: 1500 },
+  { name: '3/4', weight: 3500 },
+  { name: 'Toco', weight: 7000 },
+  { name: 'Truck', weight: 14000 },
+]
+
+const CATEGORIES = [
+  'Carros em rota',
+  'Reentrega',
+  'Em viagem',
+  'Perdidas',
+  'Diária',
+  'Stop/Parado',
+]
+
+function NewSchedule() {
+  const [companies, setCompanies] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(null)
+  
+  // Form state
+  const [companyId, setCompanyId] = useState('')
+  const [scheduleDate, setScheduleDate] = useState(() => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return tomorrow.toISOString().split('T')[0]
+  })
+  
+  const [categories, setCategories] = useState(
+    CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [] }))
+  )
+  
+  const [capacities, setCapacities] = useState(
+    PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 }))
+  )
+  
+  useEffect(() => {
+    fetchCompanies()
+  }, [])
+  
+  const fetchCompanies = async () => {
+    try {
+      const response = await axios.get('/api/companies')
+      setCompanies(response.data)
+      if (response.data.length > 0) {
+        setCompanyId(response.data[0].id)
+      }
+    } catch (err) {
+      console.error('Erro ao buscar empresas:', err)
+      setError('Erro ao carregar empresas')
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleCategoryChange = (index, value) => {
+    const newCategories = [...categories]
+    newCategories[index].count = parseInt(value) || 0
+    
+    // Reset plates if count is 0
+    if (newCategories[index].count === 0) {
+      newCategories[index].plates = []
+    }
+    // Initialize plates array if category is "Perdidas" and count > 0
+    else if (newCategories[index].name === 'Perdidas' && newCategories[index].plates.length === 0) {
+      newCategories[index].plates = ['']
+    }
+    
+    setCategories(newCategories)
+  }
+  
+  const handlePlateChange = (catIndex, plateIndex, value) => {
+    const newCategories = [...categories]
+    newCategories[catIndex].plates[plateIndex] = value
+    setCategories(newCategories)
+  }
+  
+  const addPlate = (catIndex) => {
+    const newCategories = [...categories]
+    newCategories[catIndex].count += 1
+    newCategories[catIndex].plates.push('')
+    setCategories(newCategories)
+  }
+  
+  const removePlate = (catIndex, plateIndex) => {
+    const newCategories = [...categories]
+    newCategories[catIndex].count -= 1
+    newCategories[catIndex].plates.splice(plateIndex, 1)
+    setCategories(newCategories)
+  }
+  
+  const handleCapacityChange = (index, value) => {
+    const newCapacities = [...capacities]
+    newCapacities[index].count = parseInt(value) || 0
+    setCapacities(newCapacities)
+  }
+  
+  const calculateTotalCapacity = () => {
+    return capacities.reduce((total, cap) => {
+      return total + (cap.count * cap.weight)
+    }, 0)
+  }
+  
+  const calculateTotalVehicles = () => {
+    return capacities.reduce((total, cap) => total + cap.count, 0)
+  }
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    setSuccess(null)
+    
+    // Validation
+    const lostCategory = categories.find(c => c.name === 'Perdidas')
+    if (lostCategory && lostCategory.count > 0) {
+      const filledPlates = lostCategory.plates.filter(p => p.trim() !== '')
+      if (filledPlates.length !== lostCategory.count) {
+        setError(`Informe ${lostCategory.count} placa(s) para as viagens perdidas`)
+        return
+      }
+    }
+    
+    const hasCategories = categories.some(c => c.count > 0)
+    const hasCapacities = capacities.some(c => c.count > 0)
+    
+    if (!hasCategories && !hasCapacities) {
+      setError('Informe pelo menos uma categoria ou capacidade')
+      return
+    }
+    
+    setSaving(true)
+    
+    try {
+      const payload = {
+        company_id: parseInt(companyId),
+        schedule_date: scheduleDate,
+        categories: categories
+          .filter(c => c.count > 0)
+          .map(c => ({
+            category_name: c.name,
+            count: c.count,
+            lost_plates: c.name === 'Perdidas' 
+              ? c.plates.filter(p => p.trim() !== '').map(p => ({ plate_number: p.trim().toUpperCase() }))
+              : []
+          })),
+        capacities: capacities
+          .filter(c => c.count > 0)
+          .map(c => ({
+            profile_name: c.name,
+            vehicle_count: c.count
+          }))
+      }
+      
+      await axios.post('/api/schedules', payload)
+      setSuccess('Agendamento salvo com sucesso!')
+      
+      // Reset form
+      setCategories(CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [] })))
+      setCapacities(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
+      
+    } catch (err) {
+      console.error('Erro ao salvar:', err)
+      setError(err.response?.data?.detail || 'Erro ao salvar agendamento')
+    } finally {
+      setSaving(false)
+    }
+  }
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+  
+  return (
+    <div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-800">Novo Agendamento</h1>
+        <p className="text-gray-500">Cadastre o agendamento de transporte para o dia seguinte</p>
+      </div>
+      
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-red-700">
+          <AlertCircle className="w-5 h-5" />
+          {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+          {success}
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit}>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Informações Gerais</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Empresa
+              </label>
+              <select
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                required
+              >
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Data do Agendamento
+              </label>
+              <input
+                type="date"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                required
+              />
+            </div>
+          </div>
+        </div>
+        
+        {/* Categories */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Categorias</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {categories.map((category, index) => (
+              <div key={category.name} className="border border-gray-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {category.name}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={category.count || ''}
+                  onChange={(e) => handleCategoryChange(index, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="0"
+                />
+                
+                {/* Lost plates input */}
+                {category.name === 'Perdidas' && category.count > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs text-gray-500 mb-2">
+                      Informe as placas ({category.count} veículo(s))
+                    </p>
+                    {category.plates.map((plate, plateIndex) => (
+                      <div key={plateIndex} className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={plate}
+                          onChange={(e) => handlePlateChange(index, plateIndex, e.target.value)}
+                          className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="ABC-1234"
+                          maxLength={8}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePlate(index, plateIndex)}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addPlate(index)}
+                      className="mt-2 text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Adicionar placa
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Capacities */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Capacidade de Carga</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {capacities.map((capacity, index) => (
+              <div key={capacity.name} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Perfil {capacity.name}
+                  </label>
+                  <span className="text-xs text-gray-500">{capacity.weight} kg/veículo</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={capacity.count || ''}
+                  onChange={(e) => handleCapacityChange(index, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="0"
+                />
+                <div className="mt-2 text-sm text-gray-600">
+                  Total: {(capacity.count * capacity.weight).toLocaleString('pt-BR')} kg
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Total */}
+          <div className="mt-6 p-4 bg-primary-50 rounded-lg">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm text-primary-700">Total de Veículos</p>
+                <p className="text-2xl font-bold text-primary-800">{calculateTotalVehicles()}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-primary-700">Capacidade Total</p>
+                <p className="text-2xl font-bold text-primary-800">
+                  {calculateTotalCapacity().toLocaleString('pt-BR')} kg
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Submit */}
+        <div className="flex justify-end gap-4">
+          <button
+            type="button"
+            onClick={() => {
+              setCategories(CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [] })))
+              setCapacities(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
+              setError(null)
+              setSuccess(null)
+            }}
+            className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Limpar
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            <Save className="w-5 h-5" />
+            {saving ? 'Salvando...' : 'Salvar Agendamento'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+export default NewSchedule
