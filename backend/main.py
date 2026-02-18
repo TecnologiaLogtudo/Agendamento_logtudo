@@ -554,6 +554,13 @@ async def export_schedules(
 # Include API Router
 app.include_router(api_router)
 
+# Rota explícita para a raiz (Garante que o index.html seja servido)
+@app.get("/")
+async def serve_root():
+    if os.path.exists("static/index.html"):
+        return FileResponse("static/index.html")
+    return {"message": "Frontend files not found. Please build the frontend."}
+
 # SPA Catch-all Route (Deve ser a última rota)
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):
