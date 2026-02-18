@@ -4,6 +4,11 @@ WORKDIR /app-frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ .
+
+# Define a URL da API como relativa para produção (/api)
+# Isso garante que o frontend faça requisições para o domínio atual
+ENV VITE_API_URL=/api
+
 RUN npm run build
 
 # Estágio 2: Backend Python
@@ -27,6 +32,4 @@ COPY backend/ .
 # Copia os arquivos estáticos do build do frontend para o backend
 COPY --from=build-frontend /app-frontend/dist /app/static
 
-EXPOSE 8000
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}

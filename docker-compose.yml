@@ -36,6 +36,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
 
 networks:
   automation-network:
+    driver: bridge
