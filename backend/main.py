@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Query, Response, Request, APIRouter
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, func
+from sqlalchemy import select, func, ForeignKey
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pydantic import BaseModel, field_validator
@@ -41,7 +41,7 @@ class Schedule(Base):
     __tablename__ = "schedules"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    company_id: Mapped[int] = mapped_column()
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))
     schedule_date: Mapped[date]
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     
@@ -58,7 +58,7 @@ class ScheduleCategory(Base):
     __tablename__ = "schedule_categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    schedule_id: Mapped[int] = mapped_column()
+    schedule_id: Mapped[int] = mapped_column(ForeignKey("schedules.id"))
     category_name: Mapped[str]
     count: Mapped[int] = mapped_column(default=0)
     
@@ -72,7 +72,7 @@ class LostPlate(Base):
     __tablename__ = "lost_plates"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    schedule_category_id: Mapped[int] = mapped_column()
+    schedule_category_id: Mapped[int] = mapped_column(ForeignKey("schedule_categories.id"))
     plate_number: Mapped[str]
     
     schedule_category: Mapped["ScheduleCategory"] = relationship(back_populates="lost_plates")
@@ -82,7 +82,7 @@ class ScheduleCapacity(Base):
     __tablename__ = "schedule_capacities"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    schedule_id: Mapped[int] = mapped_column()
+    schedule_id: Mapped[int] = mapped_column(ForeignKey("schedules.id"))
     profile_name: Mapped[str]
     vehicle_count: Mapped[int] = mapped_column(default=0)
     total_weight_kg: Mapped[int] = mapped_column(default=0)
