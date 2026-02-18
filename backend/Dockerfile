@@ -19,6 +19,6 @@ RUN uv pip install --system --no-cache -r requirements.txt
 COPY backend/ .
 
 # Copia os arquivos estáticos do build do frontend para o backend
-COPY --from=build-frontend /app-frontend/dist /app/static
+COPY --from=build-frontend /backend/static /app/static
 
 EXPOSE 8000

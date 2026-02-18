@@ -4,16 +4,17 @@ services:
   db:
     image: postgres:16-alpine
     container_name: logisched_db
+    env_file: .env
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: o6Qiar6UAUB7
-      POSTGRES_DB: agendamento_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - automation-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d agendamento_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,19 +24,31 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: logisched_backend
+    env_file: .env
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:o6Qiar6UAUB7@db:5432/agendamento_db
-      POSTGRES_HOST: db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: o6Qiar6UAUB7
-      POSTGRES_DB: agendamento_db
-      ALLOWED_HOSTS: "localhost,127.0.0.1,agenda.logtudo.com.br,www.agenda.logtudo.com.br"
+    networks:
+      - automation-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: logisched_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - automation-network
 
 volumes:
   postgres_data:
+
+networks:
+  automation-network:

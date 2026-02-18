@@ -17,7 +17,7 @@ from io import BytesIO
 # Database Setup
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+asyncpg://user:pass@localhost:5432/logisched"
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/agendamento_db"
 )
 
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -203,11 +203,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="LogiSched API", lifespan=lifespan)
 
-allowed_hosts = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_hosts + ["http://localhost:5173"], # Mantendo localhost:5173 para dev local se necessário
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
