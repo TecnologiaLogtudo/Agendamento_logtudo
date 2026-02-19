@@ -18,7 +18,8 @@ WORKDIR /app
 
 # Instala dependências de sistema necessárias para compilar pacotes Python (se necessário)
 RUN apt-get update && apt-get install -y \
-    build-essential \
+    build-essential \ 
+    postgresql-client \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -32,4 +33,8 @@ COPY backend/ .
 # Copia os arquivos estáticos do build do frontend para o backend
 COPY --from=build-frontend /app-frontend/dist /app/static
 
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Expose port
+EXPOSE 8000
+
+# Run the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
