@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Plus, Trash2, Save, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, Save, AlertCircle, LogOut } from 'lucide-react'
 import AuthModal from '../components/AuthModal'
 
 const PROFILES = [
@@ -20,7 +20,7 @@ const CATEGORIES = [
 ]
 
 function NewSchedule() {
-  const [authToken, setAuthToken] = useState(null)
+  const [authToken, setAuthToken] = useState(localStorage.getItem('admin_token'))
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -47,6 +47,16 @@ function NewSchedule() {
     fetchCompanies()
   }, [])
   
+  const handleAuth = (token) => {
+    localStorage.setItem('admin_token', token)
+    setAuthToken(token)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token')
+    setAuthToken(null)
+  }
+
   const fetchCompanies = async () => {
     try {
       const response = await axios.get('/api/companies')
@@ -178,7 +188,12 @@ function NewSchedule() {
       
     } catch (err) {
       console.error('Erro ao salvar:', err)
-      setError(err.response?.data?.detail || 'Erro ao salvar agendamento')
+      if (err.response?.status === 401) {
+        handleLogout()
+        setError('Sessão expirada. Faça login novamente.')
+      } else {
+        setError(err.response?.data?.detail || 'Erro ao salvar agendamento')
+      }
     } finally {
       setSaving(false)
     }
@@ -194,10 +209,21 @@ function NewSchedule() {
   
   return (
     <div>
-      <AuthModal onAuthenticated={setAuthToken} />
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Novo Agendamento</h1>
-        <p className="text-gray-500">Cadastre o agendamento de transporte para o dia seguinte</p>
+      {!authToken && <AuthModal onAuthenticated={handleAuth} />}
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Novo Agendamento</h1>
+          <p className="text-gray-500">Cadastre o agendamento de transporte para o dia seguinte</p>
+        </div>
+        {authToken && (
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="hidden sm:inline">Sair</span>
+          </button>
+        )}
       </div>
       
       {error && (
