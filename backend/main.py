@@ -529,32 +529,48 @@ async def export_schedules(
         ws = wb.active
         ws.title = "Agendamentos"
         
-        # Headers
-        headers = [
-            "Data", "Empresa", "Categoria", "Quantidade", 
-            "Placas (Perdidas)", "Perfil", "Veículos", "Capacidade (kg)"
+        # Tabela 1: Categorias
+        headers_categories = [
+            "Data", "Empresa", "Categoria", "Quantidade", "Placas (Perdidas)"
         ]
-        ws.append(headers)
+        ws.append(headers_categories)
         
         for schedule in schedules:
             company_name = schedule.company.name
+            date_str = schedule.schedule_date.strftime("%d/%m/%Y")
             
-            # Group categories
             for cat in schedule.categories:
                 plates = ", ".join([lp.plate_number for lp in cat.lost_plates])
-                
-                # Group capacities
-                for cap in schedule.capacities:
-                    ws.append([
-                        schedule.schedule_date.strftime("%d/%m/%Y"),
-                        company_name,
-                        cat.category_name,
-                        cat.count,
-                        plates if cat.category_name == "Perdidas" else "-",
-                        cap.profile_name,
-                        cap.vehicle_count,
-                        cap.total_weight_kg
-                    ])
+                ws.append([
+                    date_str,
+                    company_name,
+                    cat.category_name,
+                    cat.count,
+                    plates if cat.category_name == "Perdidas" else "-"
+                ])
+
+        # Espaço entre tabelas
+        ws.append([])
+        ws.append([])
+
+        # Tabela 2: Capacidades
+        headers_capacities = [
+            "Data", "Empresa", "Perfil", "Veículos", "Capacidade (kg)"
+        ]
+        ws.append(headers_capacities)
+        
+        for schedule in schedules:
+            company_name = schedule.company.name
+            date_str = schedule.schedule_date.strftime("%d/%m/%Y")
+            
+            for cap in schedule.capacities:
+                ws.append([
+                    date_str,
+                    company_name,
+                    cap.profile_name,
+                    cap.vehicle_count,
+                    cap.total_weight_kg
+                ])
         
         # Save to bytes
         buffer = BytesIO()

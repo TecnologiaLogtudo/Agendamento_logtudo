@@ -158,6 +158,7 @@ function Dashboard() {
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="count"
+                  nameKey="category"
                 >
                   {(metrics?.categories_distribution || []).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -191,7 +192,7 @@ function Dashboard() {
               {metrics?.recent_schedules?.map((schedule) => (
                 <tr key={schedule.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                    {new Date(schedule.schedule_date).toLocaleDateString('pt-BR')}
+                    {schedule.schedule_date.split('-').reverse().join('/')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                     {schedule.company_id === 1 ? '3 Corações' : schedule.company_id === 2 ? 'Itambé' : 'DPA'}
