@@ -627,6 +627,10 @@ async def export_schedules(
 # Include API Router
 app.include_router(api_router)
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 # Rota explícita para a raiz (Garante que o index.html seja servido)
 @app.get("/")
 async def serve_root():
