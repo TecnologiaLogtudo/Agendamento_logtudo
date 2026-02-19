@@ -199,20 +199,24 @@ CATEGORIES = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    async with async_session() as session:
-        # Seed companies if not exist
-        result = await session.execute(select(Company))
-        if not result.scalars().first():
-            companies = [
-                Company(name="3 Corações"),
-                Company(name="Itambé"),
-                Company(name="DPA"),
-            ]
-            session.add_all(companies)
-            await session.commit()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        
+        async with async_session() as session:
+            # Seed companies if not exist
+            result = await session.execute(select(Company))
+            if not result.scalars().first():
+                companies = [
+                    Company(name="3 Corações"),
+                    Company(name="Itambé"),
+                    Company(name="DPA"),
+                ]
+                session.add_all(companies)
+                await session.commit()
+    except Exception as e:
+        print(f"AVISO: Erro ao inicializar banco de dados: {e}")
+        print("O servidor continuará rodando para servir o frontend, mas a API pode estar instável.")
     
     yield
 
@@ -269,9 +273,13 @@ async def login(login_data: LoginRequest):
 # Endpoints
 @api_router.get("/companies", response_model=List[CompanyResponse])
 async def get_companies():
-    async with async_session() as session:
-        result = await session.execute(select(Company))
-        return result.scalars().all()
+    try:
+        async with async_session() as session:
+            result = await session.execute(select(Company))
+            return result.scalars().all()
+    except Exception as e:
+        print(f"Erro ao buscar empresas: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao carregar empresas. Verifique a conexão com o banco.")
 
 
 @api_router.get("/categories")
