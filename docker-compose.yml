@@ -24,15 +24,25 @@ services:
       dockerfile: backend/Dockerfile
     container_name: logisched_backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD:-sua_senha_forte_aqui}@db:5432/agendamento_db
-      SECRET_KEY: ${SECRET_KEY:-gere_uma_chave_aleatoria}
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@db:5432/agendamento_db
+      SECRET_KEY: ${SECRET_KEY}
       DEBUG: "false"
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - automation-network
+  depends_on:
+    db:
+      condition: service_healthy
+  networks:
+    - automation-network
+  expose:
+    - "8000"
+  labels:
+    - traefik.enable=true
+    - traefik.http.routers.logisched_backend.rule=Host(`agenda.logtudo.com.br`)
+    - traefik.http.routers.logisched_backend.entrypoints=http,https
+    - traefik.http.services.logisched_backend.loadbalancer.server.port=8000
+    - coolify.managed=true
+    - coolify.proxy=true
+
 
 volumes:
   postgres_data:
