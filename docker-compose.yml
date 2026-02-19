@@ -28,21 +28,20 @@ services:
       SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
       DEBUG: "false"
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
-  depends_on:
-    db:
-      condition: service_healthy
-  networks:
-    - automation-network
-  expose:
-    - "8000"
-  labels:
-    - traefik.enable=true
-    - traefik.http.routers.logisched_backend.rule=Host(`agenda.logtudo.com.br`)
-    - traefik.http.routers.logisched_backend.entrypoints=http,https
-    - traefik.http.services.logisched_backend.loadbalancer.server.port=8000
-    - coolify.managed=true
-    - coolify.proxy=true
-
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - automation-network
+    expose:
+      - "8000"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.logisched_backend.rule=Host(`agenda.logtudo.com.br`)
+      - traefik.http.routers.logisched_backend.entrypoints=http,https
+      - traefik.http.services.logisched_backend.loadbalancer.server.port=8000
+      - coolify.managed=true
+      - coolify.proxy=true
 
 volumes:
   postgres_data:
