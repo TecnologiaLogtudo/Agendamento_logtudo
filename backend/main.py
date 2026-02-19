@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, func, ForeignKey
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
 from pydantic import BaseModel, field_validator
 import os
 import openpyxl
@@ -289,8 +289,13 @@ async def create_schedule(schedule_data: ScheduleCreate):
         session.add(schedule)
         await session.commit()
         
-        # Refresh to get relationships
-        await session.refresh(schedule)
+        # Re-fetch with relationships loaded
+        query = select(Schedule).where(Schedule.id == schedule.id).options(
+            selectinload(Schedule.categories).selectinload(ScheduleCategory.lost_plates),
+            selectinload(Schedule.capacities)
+        )
+        result_exec = await session.execute(query)
+        schedule = result_exec.scalars().first()
         
         result = ScheduleResponse(
             id=schedule.id,
@@ -329,7 +334,10 @@ async def get_schedules(
     end_date: Optional[date] = None
 ):
     async with async_session() as session:
-        query = select(Schedule)
+        query = select(Schedule).options(
+            selectinload(Schedule.categories).selectinload(ScheduleCategory.lost_plates),
+            selectinload(Schedule.capacities)
+        )
         
         if company_id:
             query = query.where(Schedule.company_id == company_id)
@@ -395,7 +403,11 @@ async def get_dashboard_metrics(
             conditions.append(Schedule.schedule_date <= end_date)
         
         # Get all schedules
-        query = select(Schedule)
+        query = select(Schedule).options(
+            selectinload(Schedule.capacities),
+            selectinload(Schedule.categories).selectinload(ScheduleCategory.lost_plates),
+            selectinload(Schedule.company)
+        )
         if conditions:
             query = query.where(*conditions)
         
@@ -494,7 +506,11 @@ async def export_schedules(
     end_date: Optional[date] = None
 ):
     async with async_session() as session:
-        query = select(Schedule)
+        query = select(Schedule).options(
+            selectinload(Schedule.capacities),
+            selectinload(Schedule.categories).selectinload(ScheduleCategory.lost_plates),
+            selectinload(Schedule.company)
+        )
         
         if company_id:
             query = query.where(Schedule.company_id == company_id)
