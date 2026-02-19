@@ -29,6 +29,7 @@ services:
       DEBUG: "false"
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
       ADMIN_PASSWORD: "Agenda@26"
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
