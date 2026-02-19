@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
 const AuthModal = ({ onAuthenticated }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [password, setPassword] = useState('');
@@ -24,7 +22,7 @@ const AuthModal = ({ onAuthenticated }) => {
     setError('');
 
     try {
-      const response = await axios.post(`${API_URL}/api/auth/login`, {
+      const response = await axios.post(`/api/auth/login`, {
         password: password
       });
 
