@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Plus, Trash2, Save, AlertCircle } from 'lucide-react'
+import AuthModal from '../components/AuthModal'
 
 const PROFILES = [
   { name: 'HR', weight: 1500 },
@@ -19,6 +20,7 @@ const CATEGORIES = [
 ]
 
 function NewSchedule() {
+  const [authToken, setAuthToken] = useState(null)
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -135,6 +137,11 @@ function NewSchedule() {
       return
     }
     
+    if (!authToken) {
+      setError('Erro de autenticação. Recarregue a página.')
+      return
+    }
+
     setSaving(true)
     
     try {
@@ -158,7 +165,11 @@ function NewSchedule() {
           }))
       }
       
-      await axios.post('/api/schedules', payload)
+      await axios.post('/api/schedules', payload, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      })
       setSuccess('Agendamento salvo com sucesso!')
       
       // Reset form
@@ -183,6 +194,7 @@ function NewSchedule() {
   
   return (
     <div>
+      <AuthModal onAuthenticated={setAuthToken} />
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Novo Agendamento</h1>
         <p className="text-gray-500">Cadastre o agendamento de transporte para o dia seguinte</p>
