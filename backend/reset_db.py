@@ -5,33 +5,33 @@ import sys
 # Adiciona o diretório atual ao path para importar do main.py
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from main import async_session, Schedule, ScheduleCategory, ScheduleCapacity, LostPlate
-from sqlalchemy import delete
+from main import engine, Base, async_session, Company
 
 async def reset_database():
-    print("Conectando ao banco de dados...")
+    print("Recriando banco de dados (Drop & Create)...")
     
-    async with async_session() as session:
-        try:
-            # Deletar na ordem inversa das dependências
-            print("Removendo placas perdidas...")
-            await session.execute(delete(LostPlate))
-            
-            print("Removendo categorias...")
-            await session.execute(delete(ScheduleCategory))
-            
-            print("Removendo capacidades...")
-            await session.execute(delete(ScheduleCapacity))
-            
-            print("Removendo agendamentos...")
-            result = await session.execute(delete(Schedule))
-            
+    try:
+        async with engine.begin() as conn:
+            # Remove todas as tabelas e recria (reseta IDs e Schema)
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        
+        print("Tabelas recriadas. Inserindo dados iniciais...")
+        
+        async with async_session() as session:
+            companies = [
+                Company(name="3 Corações"),
+                Company(name="Itambé"),
+                Company(name="DPA"),
+            ]
+            session.add_all(companies)
             await session.commit()
-            print(f"Concluído! {result.rowcount} agendamentos foram removidos com sucesso.")
+            print("Concluído! Banco de dados resetado com sucesso.")
             
-        except Exception as e:
-            print(f"Erro ao limpar banco de dados: {e}")
-            await session.rollback()
+    except Exception as e:
+        print(f"Erro ao resetar banco de dados: {e}")
+    finally:
+        await engine.dispose()
 
 if __name__ == "__main__":
     if os.name == 'nt':

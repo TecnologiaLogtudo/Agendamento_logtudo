@@ -50,7 +50,7 @@ class Schedule(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))
     schedule_date: Mapped[date]
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     
     company: Mapped["Company"] = relationship(back_populates="schedules")
     categories: Mapped[List["ScheduleCategory"]] = relationship(
