@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir uv
 COPY backend/requirements.txt .
 RUN uv pip install --system --no-cache -r requirements.txt
 
-COPY backend/ .
+COPY backend/ /app/
 
 # Copia os arquivos estáticos do build do frontend para o backend
 COPY --from=build-frontend /app-frontend/dist /app/static
