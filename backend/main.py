@@ -291,6 +291,11 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
                 )
     
     async with async_session() as session:
+        # Verificar se a empresa existe
+        company = await session.get(Company, schedule_data.company_id)
+        if not company:
+            raise HTTPException(status_code=404, detail="Empresa não encontrada. Tente recarregar a página para atualizar a lista de empresas.")
+
         # Calculate total capacity
         total_capacity = 0
         total_vehicles = 0
@@ -328,7 +333,12 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
         )
         
         session.add(schedule)
-        await session.commit()
+        try:
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            print(f"Erro ao salvar agendamento: {e}")
+            raise HTTPException(status_code=500, detail=f"Erro ao salvar no banco de dados: {str(e)}")
         
         # Re-fetch with relationships loaded
         query = select(Schedule).where(Schedule.id == schedule.id).options(
