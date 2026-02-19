@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Query, Response, Request, APIRouter
+from fastapi import FastAPI, HTTPException, Query, Response, Request, APIRouter, Depends, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select, func, ForeignKey
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
@@ -12,17 +13,23 @@ from pydantic import BaseModel, field_validator
 import os
 import openpyxl
 from io import BytesIO
+from jose import JWTError, jwt
 
 
 # Database Setup
 DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/agendamento_db"
+    "DATABASE_URL"
 )
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+# Auth Configuration
+SECRET_KEY = os.getenv("SECRET_KEY", "sua_chave_secreta_padrao_desenvolvimento")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 horas
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")  # Senha Mestra
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 class Base(DeclarativeBase):
     pass
@@ -43,7 +50,7 @@ class Schedule(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))
     schedule_date: Mapped[date]
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     
     company: Mapped["Company"] = relationship(back_populates="schedules")
     categories: Mapped[List["ScheduleCategory"]] = relationship(
@@ -93,6 +100,9 @@ class ScheduleCapacity(Base):
 # Pydantic Schemas
 class LostPlateCreate(BaseModel):
     plate_number: str
+
+class LoginRequest(BaseModel):
+    password: str
 
 
 class ScheduleCategoryCreate(BaseModel):
@@ -220,6 +230,37 @@ if os.path.exists("static/assets"):
 # API Router
 api_router = APIRouter(prefix="/api")
 
+# Auth Helpers & Endpoints
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def verify_admin(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Credenciais inválidas",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        role: str = payload.get("role")
+        if role != "admin":
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    return True
+
+@api_router.post("/auth/login")
+async def login(login_data: LoginRequest):
+    if login_data.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=400, detail="Senha incorreta")
+    
+    access_token = create_access_token(data={"sub": "admin", "role": "admin"})
+    return {"access_token": access_token, "token_type": "bearer"}
+
 # Endpoints
 @api_router.get("/companies", response_model=List[CompanyResponse])
 async def get_companies():
@@ -239,7 +280,7 @@ async def get_profiles():
 
 
 @api_router.post("/schedules", response_model=ScheduleResponse)
-async def create_schedule(schedule_data: ScheduleCreate):
+async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depends(verify_admin)):
     # Validate lost plates
     for cat in schedule_data.categories:
         if cat.category_name == "Perdidas":
