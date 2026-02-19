@@ -28,7 +28,7 @@ async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit
 SECRET_KEY = os.getenv("SECRET_KEY", "sua_chave_secreta_padrao_desenvolvimento")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 horas
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")  # Senha Mestra
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Agenda@26")  # Senha Mestra
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 class Base(DeclarativeBase):
