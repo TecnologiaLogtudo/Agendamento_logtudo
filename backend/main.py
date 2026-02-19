@@ -21,7 +21,12 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL"
 )
 
-engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=False, 
+    pool_pre_ping=True,
+    connect_args={"server_settings": {"statement_timeout": "10000"}} # Timeout de 10s para evitar travamentos (504)
+)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 # Auth Configuration
