@@ -8,20 +8,43 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 function Dashboard() {
   const [metrics, setMetrics] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [companyFilter, setCompanyFilter] = useState(null)
+  const [companyFilter, setCompanyFilter] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [profileFilter, setProfileFilter] = useState('')
+  const [companies, setCompanies] = useState([])
+  const [profiles, setProfiles] = useState([])
   
   useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [companiesRes, profilesRes] = await Promise.all([
+          axios.get('/api/companies'),
+          axios.get('/api/profiles')
+        ])
+        setCompanies(companiesRes.data)
+        setProfiles(profilesRes.data)
+      } catch (error) {
+        console.error('Erro ao buscar dados iniciais:', error)
+      }
+    }
+    fetchInitialData()
+  }, [])
+
+  useEffect(() => {
     fetchMetrics()
-  }, [companyFilter])
+  }, [companyFilter, startDate, endDate, profileFilter])
   
   const fetchMetrics = async () => {
     try {
       setLoading(true)
-      let url = '/api/dashboard/metrics'
-      if (companyFilter) {
-        url += `?company_id=${companyFilter}`
-      }
-      const response = await axios.get(url)
+      const params = new URLSearchParams()
+      if (companyFilter) params.append('company_id', companyFilter)
+      if (startDate) params.append('start_date', startDate)
+      if (endDate) params.append('end_date', endDate)
+      if (profileFilter) params.append('profile_name', profileFilter)
+
+      const response = await axios.get(`/api/dashboard/metrics?${params.toString()}`)
       setMetrics(response.data)
     } catch (error) {
       console.error('Erro ao buscar métricas:', error)
@@ -59,19 +82,55 @@ function Dashboard() {
         <p className="text-gray-500">Visão geral dos agendamentos</p>
       </div>
       
-      {/* Filter */}
-      <div className="mb-6 flex items-center gap-4">
-        <label className="text-sm font-medium text-gray-700">Filtrar por empresa:</label>
-        <select
-          value={companyFilter || ''}
-          onChange={(e) => setCompanyFilter(e.target.value ? parseInt(e.target.value) : null)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-        >
-          <option value="">Todas as empresas</option>
-          <option value="1">3 Corações</option>
-          <option value="2">Itambé</option>
-          <option value="3">DPA</option>
-        </select>
+      {/* Filters */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
+          <select
+            value={companyFilter}
+            onChange={(e) => setCompanyFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+          >
+            <option value="">Todas as empresas</option>
+            {companies.map(company => (
+              <option key={company.id} value={company.id}>{company.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Perfil de Transporte</label>
+          <select
+            value={profileFilter}
+            onChange={(e) => setProfileFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+          >
+            <option value="">Todos os perfis</option>
+            {profiles.map(profile => (
+              <option key={profile.name} value={profile.name}>{profile.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+          />
+        </div>
       </div>
       
       {/* Cards */}
@@ -195,7 +254,7 @@ function Dashboard() {
                     {schedule.schedule_date.split('-').reverse().join('/')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
-                    {schedule.company_id === 1 ? '3 Corações' : schedule.company_id === 2 ? 'Itambé' : 'DPA'}
+                    {companies.find(c => c.id === schedule.company_id)?.name || `Empresa ${schedule.company_id}`}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {schedule.total_vehicles}

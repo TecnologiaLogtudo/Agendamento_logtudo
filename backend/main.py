@@ -454,7 +454,8 @@ async def get_schedules(
 async def get_dashboard_metrics(
     company_id: Optional[int] = None,
     start_date: Optional[date] = None,
-    end_date: Optional[date] = None
+    end_date: Optional[date] = None,
+    profile_name: Optional[str] = None
 ):
     async with async_session() as session:
         # Base query conditions
@@ -475,8 +476,13 @@ async def get_dashboard_metrics(
         if conditions:
             query = query.where(*conditions)
         
+        # If filtering by profile, we only want schedules that have that profile
+        if profile_name:
+            query = query.join(Schedule.capacities).where(ScheduleCapacity.profile_name == profile_name)
+        
         result = await session.execute(query.order_by(Schedule.schedule_date.desc()))
-        schedules = result.scalars().all()
+        # Use unique() because of the join
+        schedules = result.scalars().unique().all()
         
         # Calculate totals
         total_capacity = 0
@@ -485,8 +491,9 @@ async def get_dashboard_metrics(
         
         for schedule in schedules:
             for cap in schedule.capacities:
-                total_capacity += cap.total_weight_kg
-                total_vehicles += cap.vehicle_count
+                if not profile_name or cap.profile_name == profile_name:
+                    total_capacity += cap.total_weight_kg
+                    total_vehicles += cap.vehicle_count
             
             for cat in schedule.categories:
                 if cat.category_name == "Perdidas":
@@ -500,11 +507,13 @@ async def get_dashboard_metrics(
                 cap_by_company[company_name] = 0
             
             for cap in schedule.capacities:
-                cap_by_company[company_name] += cap.total_weight_kg
+                if not profile_name or cap.profile_name == profile_name:
+                    cap_by_company[company_name] += cap.total_weight_kg
         
         capacity_by_company = [
             {"company": name, "capacity_kg": capacity}
             for name, capacity in cap_by_company.items()
+            if capacity > 0
         ]
         
         # Categories distribution
@@ -523,8 +532,8 @@ async def get_dashboard_metrics(
         # Recent schedules (last 5)
         recent_schedules = []
         for schedule in schedules[:5]:
-            total_cap = sum(cap.total_weight_kg for cap in schedule.capacities)
-            total_veh = sum(cap.vehicle_count for cap in schedule.capacities)
+            total_cap = sum(cap.total_weight_kg for cap in schedule.capacities if not profile_name or cap.profile_name == profile_name)
+            total_veh = sum(cap.vehicle_count for cap in schedule.capacities if not profile_name or cap.profile_name == profile_name)
             
             recent_schedules.append(ScheduleResponse(
                 id=schedule.id,
