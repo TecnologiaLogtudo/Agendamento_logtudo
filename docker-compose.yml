@@ -42,7 +42,6 @@ services:
       - traefik.http.routers.logisched_backend.rule=Host(`agenda.logtudo.com.br`)
       - traefik.http.routers.logisched_backend.entrypoints=http,https
       - traefik.http.services.logisched_backend.loadbalancer.server.port=8000
-      - traefik.http.services.logisched_backend.loadbalancer.server.transport.respondingtimeouts.readtimeout=10m
       - coolify.managed=true
       - coolify.proxy=true
 
