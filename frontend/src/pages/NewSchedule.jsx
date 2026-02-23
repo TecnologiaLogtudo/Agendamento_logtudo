@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Plus, Trash2, Save, AlertCircle, LogOut } from 'lucide-react'
+import { Plus, Trash2, Save, LogOut } from 'lucide-react'
 import AuthModal from '../components/AuthModal'
+import Toast from '../components/Toast'
 
 const PROFILES = [
   { name: 'HR', weight: 1500 },
@@ -343,18 +344,14 @@ function NewSchedule() {
         )}
       </div>
       
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-red-700">
-          <AlertCircle className="w-5 h-5" />
-          {error}
-        </div>
-      )}
-      
-      {success && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
-          {success}
-        </div>
-      )}
+      <Toast
+        message={error || success}
+        type={error ? 'error' : 'success'}
+        onClose={() => {
+          setSuccess(null)
+          setError(null)
+        }}
+      />
       
       <form onSubmit={handleSubmit}>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">

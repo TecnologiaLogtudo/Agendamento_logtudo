@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Trash2, Plus } from 'lucide-react'
+import AuthModal from '../components/AuthModal'
 
 function AdminSettings() {
   const [authToken, setAuthToken] = useState(localStorage.getItem('admin_token'))

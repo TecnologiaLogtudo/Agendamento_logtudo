@@ -31,7 +31,7 @@ const AuthModal = ({ onAuthenticated }) => {
       setIsOpen(false);
       if (onAuthenticated) onAuthenticated(token);
       
-    } catch (err) {
+    } catch (_err) {
       setError('Senha incorreta. Tente novamente.');
     } finally {
       setLoading(false);

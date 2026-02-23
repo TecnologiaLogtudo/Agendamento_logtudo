@@ -49,7 +49,7 @@ function Dashboard() {
         const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
         setIsAdmin(payload.role === 'admin')
       }
-    } catch (e) {
+    } catch (_e) {
       setIsAdmin(false)
     }
   }, [])
