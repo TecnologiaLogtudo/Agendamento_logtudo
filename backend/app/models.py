@@ -12,6 +12,7 @@ class Company(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True)
     uf: Mapped[str] = mapped_column(default="MG")  # retained for backward compatibility
+    vehicle_goal: Mapped[int] = mapped_column(default=0)
     schedules: Mapped[List["Schedule"]] = relationship(back_populates="company")
     capacity_profiles: Mapped[List["CapacityProfile"]] = relationship(
         secondary="capacity_profile_companies",

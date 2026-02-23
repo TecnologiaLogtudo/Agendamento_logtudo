@@ -88,9 +88,20 @@ class ScheduleResponse(BaseModel):
         from_attributes = True
 
 
+class CompanyCreate(BaseModel):
+    name: str
+    vehicle_goal: Optional[int] = 0
+
+
+class CompanyUpdate(BaseModel):
+    name: Optional[str] = None
+    vehicle_goal: Optional[int] = None
+
+
 class CompanyResponse(BaseModel):
     id: int
     name: str
+    vehicle_goal: int
 
     class Config:
         from_attributes = True

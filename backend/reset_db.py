@@ -2,7 +2,8 @@ import asyncio
 import os
 
 from app.database import engine, Base, async_session
-from app.models import Company
+from app.models import Company, Uf, Category, CapacityProfile
+
 
 async def reset_database():
     print("Recriando banco de dados (Drop & Create)...")
@@ -17,12 +18,43 @@ async def reset_database():
         print("Tabelas recriadas. Inserindo dados iniciais...")
         
         async with async_session() as session:
+            # Companies
             companies = [
                 Company(name="3 Corações"),
                 Company(name="Itambé"),
                 Company(name="DPA"),
             ]
             session.add_all(companies)
+
+            # UFs
+            ufs = [
+                Uf(name="BAHIA"),
+                Uf(name="CEARÁ"),
+                Uf(name="PERNAMBUCO"),
+            ]
+            session.add_all(ufs)
+
+            # Categories
+            categories = [
+                Category(name="Carros em rota"),
+                Category(name="Reentrega"),
+                Category(name="Em viagem"),
+                Category(name="Indisponíveis"),
+                Category(name="Diária"),
+                Category(name="Spot/Parado"),
+                Category(name="Perdidas"),
+            ]
+            session.add_all(categories)
+
+            # Profiles
+            profiles = [
+                CapacityProfile(name="HR", weight=1500),
+                CapacityProfile(name="3/4", weight=3500),
+                CapacityProfile(name="Toco", weight=7000),
+                CapacityProfile(name="Truck", weight=14000),
+            ]
+            session.add_all(profiles)
+
             await session.commit()
             print("Concluído! Banco de dados resetado com sucesso.")
             

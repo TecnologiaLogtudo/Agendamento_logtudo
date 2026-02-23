@@ -6,7 +6,7 @@ from ..auth import verify_admin
 
 from ..database import async_session
 from ..models import Company
-from ..schemas import CompanyResponse
+from ..schemas import CompanyResponse, CompanyCreate, CompanyUpdate
 
 router = APIRouter()
 
@@ -23,16 +23,39 @@ async def get_companies():
 
 
 @router.post("/companies", response_model=CompanyResponse)
-async def create_company(company: CompanyResponse, authorized: bool = Depends(verify_admin)):
+async def create_company(company: CompanyCreate, authorized: bool = Depends(verify_admin)):
     async with async_session() as session:
-        new = Company(name=company.name)
+        new = Company(name=company.name, vehicle_goal=company.vehicle_goal or 0)
         session.add(new)
         try:
             await session.commit()
+            await session.refresh(new)
             return new
         except IntegrityError:
             await session.rollback()
             raise HTTPException(status_code=400, detail="Empresa já existe")
+
+
+@router.put("/companies/{company_id}", response_model=CompanyResponse)
+async def update_company(company_id: int, company_data: CompanyUpdate, authorized: bool = Depends(verify_admin)):
+    async with async_session() as session:
+        result = await session.execute(select(Company).where(Company.id == company_id))
+        db_company = result.scalar_one_or_none()
+        if not db_company:
+            raise HTTPException(status_code=404, detail="Empresa não encontrada")
+        
+        if company_data.name is not None:
+            db_company.name = company_data.name
+        if company_data.vehicle_goal is not None:
+            db_company.vehicle_goal = company_data.vehicle_goal
+            
+        try:
+            await session.commit()
+            await session.refresh(db_company)
+            return db_company
+        except IntegrityError:
+            await session.rollback()
+            raise HTTPException(status_code=400, detail="Nome de empresa já existe")
 
 
 @router.delete("/companies/{company_id}")

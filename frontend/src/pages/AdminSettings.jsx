@@ -19,10 +19,11 @@ function AdminSettings() {
   const [categories, setCategories] = useState([])
   const [profiles, setProfiles] = useState([])
 
-  const [newCompanyName, setNewCompanyName] = useState('')
+  const [newCompany, setNewCompany] = useState({ name: '', vehicle_goal: 0 })
   const [newUfName, setNewUfName] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newProfile, setNewProfile] = useState({ name: '', weight: 0, spot: false, company_ids: [] })
+  const [editingCompany, setEditingCompany] = useState(null)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
 
@@ -60,12 +61,27 @@ function AdminSettings() {
 
   const handleAddCompany = async () => {
     try {
-      await axios.post('/api/companies', { name: newCompanyName })
-      setNewCompanyName('')
+      await axios.post('/api/companies', newCompany)
+      setNewCompany({ name: '', vehicle_goal: 0 })
       fetchAll()
       setSuccess('Empresa adicionada')
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao adicionar empresa')
+    }
+  }
+
+  const handleUpdateCompany = async () => {
+    if (!editingCompany) return;
+    try {
+        await axios.put(`/api/companies/${editingCompany.id}`, { 
+            name: editingCompany.name, 
+            vehicle_goal: editingCompany.vehicle_goal 
+        });
+        setEditingCompany(null);
+        fetchAll();
+        setSuccess('Empresa atualizada');
+    } catch (err) {
+        setError(err.response?.data?.detail || 'Erro ao atualizar empresa');
     }
   }
 
@@ -132,9 +148,16 @@ function AdminSettings() {
         <div className="flex gap-2 mb-2">
           <input
             className="border px-2 py-1 flex-1"
-            value={newCompanyName}
-            onChange={e => setNewCompanyName(e.target.value)}
+            value={newCompany.name}
+            onChange={e => setNewCompany({...newCompany, name: e.target.value})}
             placeholder="Nome da empresa"
+          />
+          <input
+            className="border px-2 py-1 w-40"
+            value={newCompany.vehicle_goal}
+            onChange={e => setNewCompany({...newCompany, vehicle_goal: parseInt(e.target.value) || 0})}
+            placeholder="Meta de veículos/dia"
+            type="number"
           />
           <button onClick={handleAddCompany} className="px-3 py-1 bg-primary-600 text-white rounded">
             <Plus className="w-4 h-4" />
@@ -142,11 +165,36 @@ function AdminSettings() {
         </div>
         <ul>
           {companies.map(c => (
-            <li key={c.id} className="flex justify-between">
-              {c.name}
-              <button onClick={() => handleDelete(`/api/companies/${c.id}`)} className="text-red-500">
-                <Trash2 className="w-4 h-4" />
-              </button>
+            <li key={c.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
+              { editingCompany?.id === c.id ? (
+                  <>
+                      <input 
+                          value={editingCompany.name} 
+                          onChange={e => setEditingCompany({...editingCompany, name: e.target.value})}
+                          className="border px-2 py-1"
+                      />
+                      <input 
+                          value={editingCompany.vehicle_goal} 
+                          onChange={e => setEditingCompany({...editingCompany, vehicle_goal: parseInt(e.target.value) || 0})}
+                          className="border px-2 py-1 w-24"
+                          type="number"
+                      />
+                      <div>
+                          <button onClick={handleUpdateCompany} className="text-green-600 p-1">Salvar</button>
+                          <button onClick={() => setEditingCompany(null)} className="text-gray-600 p-1">Cancelar</button>
+                      </div>
+                  </>
+              ) : (
+                  <>
+                      <span>{c.name} - <span className="text-sm text-gray-600">Meta: {c.vehicle_goal} carros/dia</span></span>
+                      <div className="flex gap-2">
+                          <button onClick={() => setEditingCompany({...c})} className="text-blue-600">Editar</button>
+                          <button onClick={() => handleDelete(`/api/companies/${c.id}`)} className="text-red-500">
+                              <Trash2 className="w-4 h-4" />
+                          </button>
+                      </div>
+                  </>
+              )}
             </li>
           ))}
         </ul>
@@ -202,33 +250,45 @@ function AdminSettings() {
         </ul>
       </section>
 
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold">Perfis de Capacidade</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <input
-            className="border px-2 py-1"
-            placeholder="Nome"
-            value={newProfile.name}
-            onChange={e => setNewProfile({ ...newProfile, name: e.target.value })}
-          />
-          <input
-            className="border px-2 py-1"
-            placeholder="Peso"
-            type="number"
-            value={newProfile.weight}
-            onChange={e => setNewProfile({ ...newProfile, weight: parseInt(e.target.value) || 0 })}
-          />
-          <div className="flex items-center gap-2">
+      <section className="mb-8 p-4 border rounded-lg">
+        <h2 className="text-xl font-semibold mb-4">Perfis de Capacidade</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Perfil</label>
             <input
-              type="checkbox"
-              checked={newProfile.spot}
-              onChange={e => setNewProfile({ ...newProfile, spot: e.target.checked })}
+              className="border px-2 py-1 w-full rounded"
+              placeholder="Ex: Truck"
+              value={newProfile.name}
+              onChange={e => setNewProfile({ ...newProfile, name: e.target.value })}
             />
-            <span>Spot/Parado</span>
           </div>
-          <div className="col-span-full">
-            <p className="text-sm mb-1">Empresas</p>
-            <div className="flex gap-2 flex-wrap">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+            <input
+              className="border px-2 py-1 w-full rounded"
+              placeholder="Ex: 14000"
+              type="number"
+              value={newProfile.weight}
+              onChange={e => setNewProfile({ ...newProfile, weight: parseInt(e.target.value) || 0 })}
+            />
+            <p className="text-xs text-gray-500 mt-1">Capacidade de carga do veículo em quilos.</p>
+          </div>
+          <div className="md:col-span-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="spot-checkbox"
+                checked={newProfile.spot}
+                onChange={e => setNewProfile({ ...newProfile, spot: e.target.checked })}
+              />
+              <label htmlFor="spot-checkbox" className="text-sm font-medium text-gray-700">Perfil de Spot/Parado</label>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Se marcado, este perfil será usado para veículos que não estão em rota.</p>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Disponibilidade da Empresa</label>
+            <p className="text-xs text-gray-500 mb-2">Selecione para quais empresas este perfil se aplica. Se nenhuma for marcada, será válido para todas.</p>
+            <div className="flex gap-4 flex-wrap">
               {companies.map(c => (
                 <label key={c.id} className="flex items-center gap-1">
                   <input
@@ -253,7 +313,7 @@ function AdminSettings() {
             className="px-4 py-2 bg-primary-600 text-white rounded col-span-full"
             onClick={handleAddProfile}
           >
-            <Plus className="w-4 h-4 inline" /> Adicionar
+            <Plus className="w-4 h-4 inline" /> Adicionar Perfil
           </button>
         </div>
         <ul>

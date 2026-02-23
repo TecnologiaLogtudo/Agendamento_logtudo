@@ -63,6 +63,23 @@ async def upgrade_database():
                     else:
                         await conn.execute(text("ALTER TABLE schedule_categories ADD COLUMN profile_name VARCHAR(255) DEFAULT ''"))
 
+            # --- Add 'vehicle_goal' column to companies ---
+            async with conn.begin():
+                has_column = False
+                if is_sqlite:
+                    result = await conn.execute(text("PRAGMA table_info('companies')"))
+                    columns = [row[1] for row in result.all()]
+                    if 'vehicle_goal' in columns:
+                        has_column = True
+                else: # PostgreSQL and other DBs
+                    res = await conn.execute(text("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'companies' AND column_name = 'vehicle_goal')"))
+                    if res.scalar():
+                        has_column = True
+
+                if not has_column:
+                    print("Adding 'vehicle_goal' column to companies table")
+                    await conn.execute(text("ALTER TABLE companies ADD COLUMN vehicle_goal INTEGER DEFAULT 0"))
+
     except Exception as e:
         print(f"Erro ao atualizar banco de dados: {e}")
         print("Verifique a conexão com o banco (DATABASE_URL), talvez ele não esteja acessível a partir deste host.")
