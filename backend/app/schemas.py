@@ -156,3 +156,4 @@ class DashboardMetrics(BaseModel):
     capacity_by_company: List[dict]
     categories_distribution: List[dict]
     recent_schedules: List[ScheduleResponse]
+    goal_fulfillment: List[dict]

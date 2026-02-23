@@ -112,13 +112,14 @@ async def get_dashboard_metrics(
                 uf=schedule.uf,
                 schedule_date=schedule.schedule_date,
                 created_at=schedule.created_at,
+                updated_at=schedule.updated_at,
                 categories=[
                     ScheduleCategoryResponse(
                         id=cat.id,
                         category_name=cat.category_name,
                         count=cat.count,
                         profile_name=cat.profile_name,
-                        lost_plates=[LostPlateCreate(plate_number=lp.plate_number) for lp in cat.lost_plates]
+                        lost_plates=[LostPlateCreate(plate_number=lp.plate_number, reason=lp.reason) for lp in cat.lost_plates]
                     )
                     for cat in schedule.categories
                 ],
@@ -146,11 +147,43 @@ async def get_dashboard_metrics(
                 total_vehicles_spot=total_veh_spot
             ))
 
+        # Goal Fulfillment
+        from collections import defaultdict
+        
+        realizado_by_company = defaultdict(int)
+        companies_by_id = {}
+        
+        for schedule in schedules:
+            companies_by_id[schedule.company.id] = schedule.company
+            for cat in schedule.categories:
+                if cat.category_name != 'Spot/Parado':
+                    realizado_by_company[schedule.company.id] += cat.count
+
+        num_days = 1
+        if schedules:
+            if start_date and end_date:
+                num_days = (end_date - start_date).days + 1
+            else:
+                min_date = min(s.schedule_date for s in schedules)
+                max_date = max(s.schedule_date for s in schedules)
+                num_days = (max_date - min_date).days + 1
+
+        goal_fulfillment = []
+        for company_id, realizado in realizado_by_company.items():
+            company = companies_by_id[company_id]
+            meta_for_period = company.vehicle_goal * num_days
+            goal_fulfillment.append({
+                "company": company.name,
+                "realizado": realizado,
+                "meta": meta_for_period,
+            })
+
         return DashboardMetrics(
             total_capacity_kg=total_capacity,
             total_vehicles=total_vehicles,
             total_lost_trips=total_lost_trips,
             capacity_by_company=capacity_by_company,
             categories_distribution=categories_distribution,
-            recent_schedules=recent_schedules
+            recent_schedules=recent_schedules,
+            goal_fulfillment=goal_fulfillment
         )

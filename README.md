@@ -87,7 +87,7 @@ npm run dev
   - Em viagem
   - Perdidas (com registro de placas)
   - Diária
-  - Stop/Parado
+  - Spot/Parado
 - **Perfis de veículos**:
   - HR: 1.500 kg
   - 3/4: 3.500 kg

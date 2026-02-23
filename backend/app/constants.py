@@ -13,5 +13,5 @@ CATEGORIES = [
     "Em viagem",
     "Perdidas",
     "Diária",
-    "Stop/Parado",
+    "Spot/Parado",
 ]

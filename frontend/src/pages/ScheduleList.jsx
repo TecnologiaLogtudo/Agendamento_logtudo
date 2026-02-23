@@ -244,7 +244,7 @@ function ScheduleList() {
                             className={`px-2 py-1 rounded-full text-xs ${
                               cat.category_name === 'Perdidas'
                                 ? 'bg-red-100 text-red-700'
-                                : cat.category_name === 'Stop/Parado'
+                                : cat.category_name === 'Spot/Parado'
                                 ? 'bg-gray-100 text-gray-700'
                                 : 'bg-blue-100 text-blue-700'
                             }`}

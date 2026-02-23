@@ -425,6 +425,26 @@ function Dashboard() {
         </div>
       </div>
       
+      {/* New Chart Row */}
+      <div className="grid grid-cols-1 gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Realizado vs. Meta (Veículos)</h2>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={metrics?.goal_fulfillment || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="company" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="meta" fill="#10b981" name="Meta" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+      
       {/* Recent Schedules */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-6 border-b border-gray-100">
@@ -468,7 +488,7 @@ function Dashboard() {
                           className={`px-2 py-1 rounded-full text-xs ${
                             cat.category_name === 'Perdidas' 
                               ? 'bg-red-100 text-red-700' 
-                              : cat.category_name === 'Stop/Parado'
+                              : cat.category_name === 'Spot/Parado'
                               ? 'bg-gray-100 text-gray-700'
                               : 'bg-blue-100 text-blue-700'
                           }`}
