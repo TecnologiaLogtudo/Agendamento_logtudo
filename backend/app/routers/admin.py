@@ -3,6 +3,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from ..auth import verify_admin
 from ..database import async_session
@@ -74,12 +75,20 @@ async def delete_category(cat_id: int, authorized: bool = Depends(verify_admin))
 @router.get("/admin/profiles", response_model=List[CapacityProfileResponse])
 async def list_profiles(authorized: bool = Depends(verify_admin)):
     async with async_session() as session:
-        result = await session.execute(select(CapacityProfile))
-        profiles = result.scalars().all()
-        # convert companies to ids
-        for p in profiles:
-            p.company_ids = [c.id for c in p.companies]
-        return profiles
+        result = await session.execute(
+            select(CapacityProfile).options(selectinload(CapacityProfile.companies))
+        )
+        profiles = result.scalars().unique().all()
+        return [
+            CapacityProfileResponse(
+                id=p.id,
+                name=p.name,
+                weight=p.weight,
+                spot=p.spot,
+                company_ids=[c.id for c in p.companies],
+            )
+            for p in profiles
+        ]
 
 @router.post("/admin/profiles", response_model=CapacityProfileResponse)
 async def create_profile(profile: CapacityProfileCreate, authorized: bool = Depends(verify_admin)):

@@ -81,7 +81,8 @@ class CapacityProfile(Base):
 
     companies: Mapped[List["Company"]] = relationship(
         secondary="capacity_profile_companies",
-        back_populates="capacity_profiles"
+        back_populates="capacity_profiles",
+        lazy="selectin"
     )
 
 

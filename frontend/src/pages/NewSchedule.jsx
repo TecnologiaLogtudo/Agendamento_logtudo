@@ -35,7 +35,7 @@ function NewSchedule() {
   
   // Form state
   const [companyId, setCompanyId] = useState('')
-  const [uf, setUf] = useState('')
+  const [uf, setUf] = useState('BAHIA')
   const [scheduleDate, setScheduleDate] = useState(() => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -46,7 +46,7 @@ function NewSchedule() {
     DEFAULT_CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [], profile: '' }))
   )
   const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES)
-  const [ufs, setUfs] = useState([])
+  const [ufs, setUfs] = useState(['BAHIA', 'CEARÁ', 'PERNAMBUCO'])
   const [profiles, setProfiles] = useState(PROFILES)
   
   const [capacities, setCapacities] = useState(
