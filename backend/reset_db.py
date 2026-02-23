@@ -6,6 +6,7 @@ from app.models import Company
 
 async def reset_database():
     print("Recriando banco de dados (Drop & Create)...")
+    print(f"Usando DATABASE_URL={os.getenv('DATABASE_URL')}")
     
     try:
         async with engine.begin() as conn:
@@ -27,6 +28,8 @@ async def reset_database():
             
     except Exception as e:
         print(f"Erro ao resetar banco de dados: {e}")
+        print("Verifique se a variável DATABASE_URL está correta e se o servidor está acessível.")
+        print("Se você está rodando localmente e não tem Postgres, remova DATABASE_URL ou ajuste-o para um banco local.")
     finally:
         await engine.dispose()
 

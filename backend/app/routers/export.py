@@ -17,11 +17,13 @@ router = APIRouter()
 async def export_schedules(
     company_id: Optional[int] = None,
     start_date: Optional[date] = None,
-    end_date: Optional[date] = None
+    end_date: Optional[date] = None,
+    uf: Optional[str] = None
 ):
     async with async_session() as session:
         query = select(Schedule).options(
             selectinload(Schedule.capacities),
+            selectinload(Schedule.capacities_spot),
             selectinload(Schedule.categories).selectinload(ScheduleCategory.lost_plates),
             selectinload(Schedule.company)
         )
@@ -32,6 +34,8 @@ async def export_schedules(
             query = query.where(Schedule.schedule_date >= start_date)
         if end_date:
             query = query.where(Schedule.schedule_date <= end_date)
+        if uf:                              # aplica filtro de UF
+            query = query.where(Schedule.uf == uf)
 
         query = query.order_by(Schedule.schedule_date.desc())
 
@@ -45,7 +49,7 @@ async def export_schedules(
 
         # Tabela 1: Categorias
         headers_categories = [
-            "Data", "Empresa", "Categoria", "Quantidade", "Placas (Perdidas)"
+            "Data", "Empresa", "Categoria", "Quantidade", "Placas (Indisponíveis)"
         ]
         ws.append(headers_categories)
 
@@ -54,20 +58,20 @@ async def export_schedules(
             date_str = schedule.schedule_date.strftime("%d/%m/%Y")
 
             for cat in schedule.categories:
-                plates = ", ".join([lp.plate_number for lp in cat.lost_plates])
+                plates = ", ".join([f"{lp.plate_number} ({lp.reason})" for lp in cat.lost_plates])
                 ws.append([
                     date_str,
                     company_name,
                     cat.category_name,
                     cat.count,
-                    plates if cat.category_name == "Perdidas" else "-"
+                    plates if cat.category_name == "Indisponíveis" else "-"
                 ])
 
         # Espaço entre tabelas
         ws.append([])
         ws.append([])
 
-        # Tabela 2: Capacidades
+        # Tabela 2: Capacidades normais
         headers_capacities = [
             "Data", "Empresa", "Perfil", "Veículos", "Capacidade (kg)"
         ]
@@ -78,6 +82,24 @@ async def export_schedules(
             date_str = schedule.schedule_date.strftime("%d/%m/%Y")
 
             for cap in schedule.capacities:
+                ws.append([
+                    date_str,
+                    company_name,
+                    cap.profile_name,
+                    cap.vehicle_count,
+                    cap.total_weight_kg
+                ])
+
+        # Espaço entre tabelas extras
+        ws.append([])
+        ws.append([])
+
+        # Tabela 3: Capacidades SPOT
+        ws.append(["Data", "Empresa", "Perfil", "Veículos", "Capacidade SPOT (kg)"])
+        for schedule in schedules:
+            company_name = schedule.company.name
+            date_str = schedule.schedule_date.strftime("%d/%m/%Y")
+            for cap in schedule.capacities_spot:
                 ws.append([
                     date_str,
                     company_name,

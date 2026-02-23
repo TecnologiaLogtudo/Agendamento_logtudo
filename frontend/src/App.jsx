@@ -19,7 +19,7 @@ function Sidebar() {
         <div className="flex items-center gap-3">
           <Truck className="w-8 h-8 text-blue-400" />
           <div>
-            <h1 className="text-xl font-bold">LogiSched</h1>
+            <h1 className="text-xl font-bold">LogSchedule</h1>
             <p className="text-xs text-primary-300">Agendamento Logístico</p>
           </div>
         </div>
@@ -51,7 +51,7 @@ function Sidebar() {
       
       <div className="p-4 border-t border-primary-800">
         <div className="text-xs text-primary-400 text-center">
-          v1.0.0 - Sistema de Agendamento
+          v2.0.0 - Sistema de Agendamento
         </div>
       </div>
     </div>

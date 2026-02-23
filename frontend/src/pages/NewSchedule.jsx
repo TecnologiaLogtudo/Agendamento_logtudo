@@ -14,9 +14,10 @@ const CATEGORIES = [
   'Carros em rota',
   'Reentrega',
   'Em viagem',
-  'Perdidas',
+  'Indisponíveis',
   'Diária',
-  'Stop/Parado',
+  'Spot/Parado',
+  'Perdidas',
 ]
 
 const UFS = ['BAHIA', 'CEARÁ', 'PERNAMBUCO']
@@ -44,6 +45,10 @@ function NewSchedule() {
   )
   
   const [capacities, setCapacities] = useState(
+    PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 }))
+  )
+  
+  const [capacitiesSpot, setCapacitiesSpot] = useState(
     PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 }))
   )
   
@@ -84,9 +89,9 @@ function NewSchedule() {
     if (newCategories[index].count === 0) {
       newCategories[index].plates = []
     }
-    // Initialize plates array if category is "Perdidas" and count > 0
-    else if (newCategories[index].name === 'Perdidas' && newCategories[index].plates.length === 0) {
-      newCategories[index].plates = ['']
+    // Initialize plates array if category is "Indisponíveis" and count > 0
+    else if (newCategories[index].name === 'Indisponíveis' && newCategories[index].plates.length === 0) {
+      newCategories[index].plates = [{ plate: '', reason: '' }]
     }
     
     setCategories(newCategories)
@@ -94,14 +99,20 @@ function NewSchedule() {
   
   const handlePlateChange = (catIndex, plateIndex, value) => {
     const newCategories = [...categories]
-    newCategories[catIndex].plates[plateIndex] = value
+    newCategories[catIndex].plates[plateIndex].plate = value
+    setCategories(newCategories)
+  }
+
+  const handlePlateReasonChange = (catIndex, plateIndex, value) => {
+    const newCategories = [...categories]
+    newCategories[catIndex].plates[plateIndex].reason = value
     setCategories(newCategories)
   }
   
   const addPlate = (catIndex) => {
     const newCategories = [...categories]
     newCategories[catIndex].count += 1
-    newCategories[catIndex].plates.push('')
+    newCategories[catIndex].plates.push({ plate: '', reason: '' })
     setCategories(newCategories)
   }
   
@@ -118,8 +129,20 @@ function NewSchedule() {
     setCapacities(newCapacities)
   }
   
+  const handleCapacitySpotChange = (index, value) => {
+    const newCapacitiesSpot = [...capacitiesSpot]
+    newCapacitiesSpot[index].count = parseInt(value) || 0
+    setCapacitiesSpot(newCapacitiesSpot)
+  }
+  
   const calculateTotalCapacity = () => {
     return capacities.reduce((total, cap) => {
+      return total + (cap.count * cap.weight)
+    }, 0)
+  }
+  
+  const calculateTotalCapacitySpot = () => {
+    return capacitiesSpot.reduce((total, cap) => {
       return total + (cap.count * cap.weight)
     }, 0)
   }
@@ -128,17 +151,31 @@ function NewSchedule() {
     return capacities.reduce((total, cap) => total + cap.count, 0)
   }
   
+  const calculateTotalVehiclesSpot = () => {
+    return capacitiesSpot.reduce((total, cap) => total + cap.count, 0)
+  }
+  
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
     setSuccess(null)
     
-    // Validation
-    const lostCategory = categories.find(c => c.name === 'Perdidas')
+    // Validation for unavailable category
+    const lostCategory = categories.find(c => c.name === 'Indisponíveis')
     if (lostCategory && lostCategory.count > 0) {
-      const filledPlates = lostCategory.plates.filter(p => p.trim() !== '')
+      const filledPlates = lostCategory.plates.filter(p => p.plate.trim() !== '' && p.reason.trim() !== '')
       if (filledPlates.length !== lostCategory.count) {
-        setError(`Informe ${lostCategory.count} placa(s) para as viagens perdidas`)
+        setError(`Informe ${lostCategory.count} placa(s) e motivo(s) para as viagens indisponíveis`)
+        return
+      }
+    }
+    
+    // Validation for Spot/Parado category
+    const spotCategory = categories.find(c => c.name === 'Spot/Parado')
+    const spotVehiclesCount = calculateTotalVehiclesSpot()
+    if (spotCategory && spotCategory.count > 0) {
+      if (spotVehiclesCount !== spotCategory.count) {
+        setError(`A soma dos veículos em "Capacidade de Carga - SPOT" (${spotVehiclesCount}) deve ser igual à quantidade em "Spot/Parado" (${spotCategory.count})`)
         return
       }
     }
@@ -168,11 +205,19 @@ function NewSchedule() {
           .map(c => ({
             category_name: c.name,
             count: c.count,
-            lost_plates: c.name === 'Perdidas' 
-              ? c.plates.filter(p => p.trim() !== '').map(p => ({ plate_number: p.trim().toUpperCase() }))
+            lost_plates: c.name === 'Indisponíveis' 
+              ? c.plates
+                  .filter(p => p.plate.trim() !== '' && p.reason.trim() !== '')
+                  .map(p => ({ plate_number: p.plate.trim().toUpperCase(), reason: p.reason.trim() }))
               : []
           })),
         capacities: capacities
+          .filter(c => c.count > 0)
+          .map(c => ({
+            profile_name: c.name,
+            vehicle_count: c.count
+          })),
+        capacities_spot: capacitiesSpot
           .filter(c => c.count > 0)
           .map(c => ({
             profile_name: c.name,
@@ -190,6 +235,7 @@ function NewSchedule() {
       // Reset form
       setCategories(CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [] })))
       setCapacities(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
+      setCapacitiesSpot(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
       
     } catch (err) {
       console.error('Erro ao salvar:', err)
@@ -323,28 +369,37 @@ function NewSchedule() {
                 />
                 
                 {/* Lost plates input */}
-                {category.name === 'Perdidas' && category.count > 0 && (
+                {category.name === 'Indisponíveis' && category.count > 0 && (
                   <div className="mt-3">
                     <p className="text-xs text-gray-500 mb-2">
-                      Informe as placas ({category.count} veículo(s))
+                      Informe as placas ({category.count} veículo(s)) e motivo
                     </p>
-                    {category.plates.map((plate, plateIndex) => (
-                      <div key={plateIndex} className="flex gap-2 mb-2">
+                    {category.plates.map((plateObj, plateIndex) => (
+                      <div key={plateIndex} className="flex flex-col gap-2 mb-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={plateObj.plate}
+                            onChange={(e) => handlePlateChange(index, plateIndex, e.target.value)}
+                            className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            placeholder="ABC-1234"
+                            maxLength={8}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePlate(index, plateIndex)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                         <input
                           type="text"
-                          value={plate}
-                          onChange={(e) => handlePlateChange(index, plateIndex, e.target.value)}
-                          className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                          placeholder="ABC-1234"
-                          maxLength={8}
+                          value={plateObj.reason}
+                          onChange={(e) => handlePlateReasonChange(index, plateIndex, e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Motivo"
                         />
-                        <button
-                          type="button"
-                          onClick={() => removePlate(index, plateIndex)}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     ))}
                     <button
@@ -407,6 +462,51 @@ function NewSchedule() {
           </div>
         </div>
         
+        {/* Capacities - SPOT */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Capacidade de Carga - SPOT</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {capacitiesSpot.map((capacity, index) => (
+              <div key={capacity.name} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Perfil {capacity.name}
+                  </label>
+                  <span className="text-xs text-gray-500">{capacity.weight} kg/veículo</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={capacity.count || ''}
+                  onChange={(e) => handleCapacitySpotChange(index, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="0"
+                />
+                <div className="mt-2 text-sm text-gray-600">
+                  Total: {(capacity.count * capacity.weight).toLocaleString('pt-BR')} kg
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Total - SPOT */}
+          <div className="mt-6 p-4 bg-primary-50 rounded-lg">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm text-primary-700">Total de Veículos</p>
+                <p className="text-2xl font-bold text-primary-800">{calculateTotalVehiclesSpot()}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-primary-700">Capacidade Total</p>
+                <p className="text-2xl font-bold text-primary-800">
+                  {calculateTotalCapacitySpot().toLocaleString('pt-BR')} kg
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         {/* Submit */}
         <div className="flex justify-end gap-4">
           <button
@@ -414,6 +514,7 @@ function NewSchedule() {
             onClick={() => {
               setCategories(CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [] })))
               setCapacities(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
+              setCapacitiesSpot(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
               setError(null)
               setSuccess(null)
             }}

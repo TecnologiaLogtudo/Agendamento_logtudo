@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class LostPlateCreate(BaseModel):
     plate_number: str
+    reason: str
 
 
 class LoginRequest(BaseModel):
@@ -22,12 +23,18 @@ class ScheduleCapacityCreate(BaseModel):
     vehicle_count: int
 
 
+class ScheduleCapacitySpotCreate(BaseModel):
+    profile_name: str
+    vehicle_count: int
+
+
 class ScheduleCreate(BaseModel):
     company_id: int
     uf: str
     schedule_date: date
     categories: List[ScheduleCategoryCreate]
     capacities: List[ScheduleCapacityCreate]
+    capacities_spot: List[ScheduleCapacitySpotCreate] = []
 
 
 class ScheduleCategoryResponse(BaseModel):
@@ -50,6 +57,16 @@ class ScheduleCapacityResponse(BaseModel):
         from_attributes = True
 
 
+class ScheduleCapacitySpotResponse(BaseModel):
+    id: int
+    profile_name: str
+    vehicle_count: int
+    total_weight_kg: int
+
+    class Config:
+        from_attributes = True
+
+
 class ScheduleResponse(BaseModel):
     id: int
     company_id: int
@@ -58,8 +75,11 @@ class ScheduleResponse(BaseModel):
     created_at: datetime
     categories: List[ScheduleCategoryResponse]
     capacities: List[ScheduleCapacityResponse]
+    capacities_spot: List[ScheduleCapacitySpotResponse]
     total_capacity_kg: int
+    total_capacity_spot_kg: int
     total_vehicles: int
+    total_vehicles_spot: int
 
     class Config:
         from_attributes = True

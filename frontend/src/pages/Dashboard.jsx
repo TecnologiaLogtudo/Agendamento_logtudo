@@ -12,18 +12,22 @@ function Dashboard() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [profileFilter, setProfileFilter] = useState('')
+  const [ufFilter, setUfFilter] = useState('')
   const [companies, setCompanies] = useState([])
   const [profiles, setProfiles] = useState([])
+  const [ufs, setUfs] = useState([])
   
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [companiesRes, profilesRes] = await Promise.all([
+        const [companiesRes, profilesRes, ufsRes] = await Promise.all([
           axios.get('/api/companies'),
-          axios.get('/api/profiles')
+          axios.get('/api/profiles'),
+          axios.get('/api/companies/ufs')
         ])
         setCompanies(companiesRes.data)
         setProfiles(profilesRes.data)
+        setUfs(ufsRes.data)
       } catch (error) {
         console.error('Erro ao buscar dados iniciais:', error)
       }
@@ -33,7 +37,7 @@ function Dashboard() {
 
   useEffect(() => {
     fetchMetrics()
-  }, [companyFilter, startDate, endDate, profileFilter])
+  }, [companyFilter, startDate, endDate, profileFilter, ufFilter])
   
   const fetchMetrics = async () => {
     try {
@@ -43,6 +47,7 @@ function Dashboard() {
       if (startDate) params.append('start_date', startDate)
       if (endDate) params.append('end_date', endDate)
       if (profileFilter) params.append('profile_name', profileFilter)
+      if (ufFilter) params.append('uf', ufFilter)
 
       const response = await axios.get(`/api/dashboard/metrics?${params.toString()}`)
       setMetrics(response.data)
@@ -83,7 +88,7 @@ function Dashboard() {
       </div>
       
       {/* Filters */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
           <select
@@ -108,6 +113,20 @@ function Dashboard() {
             <option value="">Todos os perfis</option>
             {profiles.map(profile => (
               <option key={profile.name} value={profile.name}>{profile.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">UF</label>
+          <select
+            value={ufFilter}
+            onChange={(e) => setUfFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+          >
+            <option value="">Todas as UFs</option>
+            {ufs.map(uf => (
+              <option key={uf} value={uf}>{uf}</option>
             ))}
           </select>
         </div>

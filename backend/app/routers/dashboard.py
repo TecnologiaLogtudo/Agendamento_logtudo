@@ -6,8 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from ..database import async_session
-from ..models import Schedule, ScheduleCapacity, ScheduleCategory
-from ..schemas import DashboardMetrics, ScheduleResponse, ScheduleCategoryResponse, ScheduleCapacityResponse, LostPlateCreate
+from ..models import Schedule, ScheduleCapacity, ScheduleCapacitySpot, ScheduleCategory
+from ..schemas import DashboardMetrics, ScheduleResponse, ScheduleCategoryResponse, ScheduleCapacityResponse, ScheduleCapacitySpotResponse, LostPlateCreate
 
 router = APIRouter()
 
@@ -15,6 +15,7 @@ router = APIRouter()
 @router.get("/dashboard/metrics", response_model=DashboardMetrics)
 async def get_dashboard_metrics(
     company_id: Optional[int] = None,
+    uf: Optional[str] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     profile_name: Optional[str] = None
@@ -24,6 +25,8 @@ async def get_dashboard_metrics(
         conditions = []
         if company_id:
             conditions.append(Schedule.company_id == company_id)
+        if uf:
+            conditions.append(Schedule.uf == uf.upper())
         if start_date:
             conditions.append(Schedule.schedule_date >= start_date)
         if end_date:
@@ -32,6 +35,7 @@ async def get_dashboard_metrics(
         # Get all schedules
         query = select(Schedule).options(
             selectinload(Schedule.capacities),
+            selectinload(Schedule.capacities_spot),
             selectinload(Schedule.categories).selectinload(ScheduleCategory.lost_plates),
             selectinload(Schedule.company)
         )
@@ -56,6 +60,9 @@ async def get_dashboard_metrics(
                 if not profile_name or cap.profile_name == profile_name:
                     total_capacity += cap.total_weight_kg
                     total_vehicles += cap.vehicle_count
+
+            # spot capacities don't count towards the main totals (they are reported separately)
+            # but if you want to include them, adjust accordingly here
 
             for cat in schedule.categories:
                 if cat.category_name == "Perdidas":
@@ -96,10 +103,13 @@ async def get_dashboard_metrics(
         for schedule in schedules[:5]:
             total_cap = sum(cap.total_weight_kg for cap in schedule.capacities if not profile_name or cap.profile_name == profile_name)
             total_veh = sum(cap.vehicle_count for cap in schedule.capacities if not profile_name or cap.profile_name == profile_name)
+            total_cap_spot = sum(cap.total_weight_kg for cap in schedule.capacities_spot if not profile_name or cap.profile_name == profile_name)
+            total_veh_spot = sum(cap.vehicle_count for cap in schedule.capacities_spot if not profile_name or cap.profile_name == profile_name)
 
             recent_schedules.append(ScheduleResponse(
                 id=schedule.id,
                 company_id=schedule.company_id,
+                uf=schedule.uf,
                 schedule_date=schedule.schedule_date,
                 created_at=schedule.created_at,
                 categories=[
@@ -120,8 +130,19 @@ async def get_dashboard_metrics(
                     )
                     for cap in schedule.capacities
                 ],
+                capacities_spot=[
+                    ScheduleCapacitySpotResponse(
+                        id=cap.id,
+                        profile_name=cap.profile_name,
+                        vehicle_count=cap.vehicle_count,
+                        total_weight_kg=cap.total_weight_kg
+                    )
+                    for cap in schedule.capacities_spot
+                ],
                 total_capacity_kg=total_cap,
-                total_vehicles=total_veh
+                total_capacity_spot_kg=total_cap_spot,
+                total_vehicles=total_veh,
+                total_vehicles_spot=total_veh_spot
             ))
 
         return DashboardMetrics(

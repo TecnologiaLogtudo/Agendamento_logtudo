@@ -30,6 +30,9 @@ class Schedule(Base):
     capacities: Mapped[List["ScheduleCapacity"]] = relationship(
         back_populates="schedule", cascade="all, delete-orphan"
     )
+    capacities_spot: Mapped[List["ScheduleCapacitySpot"]] = relationship(
+        back_populates="schedule", cascade="all, delete-orphan"
+    )
 
 
 class ScheduleCategory(Base):
@@ -52,6 +55,7 @@ class LostPlate(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     schedule_category_id: Mapped[int] = mapped_column(ForeignKey("schedule_categories.id"))
     plate_number: Mapped[str]
+    reason: Mapped[str] = mapped_column(default="")
 
     schedule_category: Mapped["ScheduleCategory"] = relationship(back_populates="lost_plates")
 
@@ -66,3 +70,16 @@ class ScheduleCapacity(Base):
     total_weight_kg: Mapped[int] = mapped_column(default=0)
 
     schedule: Mapped["Schedule"] = relationship(back_populates="capacities")
+
+
+class ScheduleCapacitySpot(Base):
+    __tablename__ = "schedule_capacity_spots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    schedule_id: Mapped[int] = mapped_column(ForeignKey("schedules.id"))
+    profile_name: Mapped[str]
+    vehicle_count: Mapped[int] = mapped_column(default=0)
+    total_weight_kg: Mapped[int] = mapped_column(default=0)
+
+    schedule: Mapped["Schedule"] = relationship(back_populates="capacities_spot")
+

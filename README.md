@@ -34,7 +34,25 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 
 # Configurar banco de dados
-# Crie um banco PostgreSQL chamado 'logisched'
+# Defina a variável de ambiente DATABASE_URL para apontar para seu banco
+# PostgreSQL, por exemplo:
+#
+# export DATABASE_URL="postgresql+asyncpg://user:pass@localhost/logisched"  # Linux/Mac
+# set DATABASE_URL="postgresql+asyncpg://user:pass@localhost/logisched"     # Windows Powershell
+#
+# Se você não definir a variável, o sistema cairá para um SQLite local
+# (`local.db`), útil para testes rápidos ou quando não houver Postgres.  
+
+# Caso já exista um banco com dados anteriores,
+# execute o script de migração para ajustar o esquema:
+#
+#     python upgrade_db.py
+#
+# Esse utilitário cria tabelas novas e adiciona colunas
+# (ex: `reason` em lost_plates) sem perder informações.
+# Em desenvolvimeno também é possível resetar o banco:
+#
+#     python reset_db.py
 
 # Executar servidor
 uvicorn main:app --reload
