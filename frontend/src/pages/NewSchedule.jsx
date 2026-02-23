@@ -108,9 +108,13 @@ function NewSchedule() {
   const fetchUfs = async () => {
     try {
       const res = await axios.get('/api/companies/ufs')
-      setUfs(res.data)
-      if (res.data.length > 0) {
-        setUf(res.data[0])
+      const serverUfs = res.data || []
+      // merge server UFs with existing defaults, keep unique values
+      const combined = Array.from(new Set([...ufs, ...serverUfs]))
+      setUfs(combined)
+      // only override selected UF if it's not present in the combined list
+      if (!combined.includes(uf) && combined.length > 0) {
+        setUf(combined[0])
       }
     } catch (err) {
       console.error('Erro ao buscar UFs', err)
