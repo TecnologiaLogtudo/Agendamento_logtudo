@@ -19,6 +19,9 @@ const CATEGORIES = [
   'Stop/Parado',
 ]
 
+const UFS = ['BAHIA', 'CEARÁ', 'PERNAMBUCO']
+
+
 function NewSchedule() {
   const [authToken, setAuthToken] = useState(localStorage.getItem('admin_token'))
   const [companies, setCompanies] = useState([])
@@ -29,6 +32,7 @@ function NewSchedule() {
   
   // Form state
   const [companyId, setCompanyId] = useState('')
+  const [uf, setUf] = useState('MG')
   const [scheduleDate, setScheduleDate] = useState(() => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -157,6 +161,7 @@ function NewSchedule() {
     try {
       const payload = {
         company_id: parseInt(companyId),
+        uf: uf,
         schedule_date: scheduleDate,
         categories: categories
           .filter(c => c.count > 0)
@@ -243,7 +248,7 @@ function NewSchedule() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Informações Gerais</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Empresa
@@ -260,6 +265,27 @@ function NewSchedule() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                UF <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={uf}
+                onChange={(e) => setUf(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-primary-300 bg-primary-50 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                required
+              >
+                {UFS.map(item => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+               <div className="pointer-events-none absolute inset-y-0 right-0 top-6 flex items-center px-2 text-primary-700">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+              </div>
             </div>
             
             <div>

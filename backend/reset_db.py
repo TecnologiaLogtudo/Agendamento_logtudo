@@ -1,11 +1,8 @@
 import asyncio
 import os
-import sys
 
-# Adiciona o diretório atual ao path para importar do main.py
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from main import engine, Base, async_session, Company
+from app.database import engine, Base, async_session
+from app.models import Company
 
 async def reset_database():
     print("Recriando banco de dados (Drop & Create)...")
