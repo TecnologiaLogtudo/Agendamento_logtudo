@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from datetime import date, datetime, timezone
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,7 +27,7 @@ class Schedule(Base):
     uf: Mapped[str] = mapped_column(default="MG")
     schedule_date: Mapped[date]
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
-    updated_at: Mapped[datetime] | None = mapped_column(nullable=True)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     company: Mapped["Company"] = relationship(back_populates="schedules")
     categories: Mapped[List["ScheduleCategory"]] = relationship(

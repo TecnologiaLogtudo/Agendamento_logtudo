@@ -1,4 +1,5 @@
 import asyncio
+import os
 from sqlalchemy import text
 from app.database import engine, Base
 
@@ -21,7 +22,7 @@ async def upgrade_database():
             # ensure `reason` column exists on lost_plates
             try:
                 result = await conn.execute(text("PRAGMA table_info('lost_plates')"))
-                columns = [row[1] for row in result.fetchall()]
+                columns = [row[1] for row in result.all()]
                 if 'reason' not in columns:
                     print("Adding 'reason' column to lost_plates table")
                     await conn.execute(text("ALTER TABLE lost_plates ADD COLUMN reason TEXT DEFAULT ''"))
@@ -36,7 +37,7 @@ async def upgrade_database():
             # ensure `profile_name` column exists on schedule_categories
             try:
                 result = await conn.execute(text("PRAGMA table_info('schedule_categories')"))
-                columns = [row[1] for row in result.fetchall()]
+                columns = [row[1] for row in result.all()]
                 if 'profile_name' not in columns:
                     print("Adding 'profile_name' column to schedule_categories table")
                     await conn.execute(text("ALTER TABLE schedule_categories ADD COLUMN profile_name TEXT DEFAULT ''"))
@@ -50,8 +51,6 @@ async def upgrade_database():
         print("Verifique a conexão com o banco (DATABASE_URL), talvez ele não esteja acessível a partir deste host.")
     finally:
         await engine.dispose()
-
-    await engine.dispose()
     print("Database upgrade complete.")
 
 if __name__ == '__main__':

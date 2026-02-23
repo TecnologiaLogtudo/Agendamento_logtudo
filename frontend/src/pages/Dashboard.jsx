@@ -112,6 +112,36 @@ function Dashboard() {
 
   const submitEdit = async () => {
     if (!editingSchedule) return
+
+    // Client-side validation before sending
+    // Ensure 'Perdidas' categories have a profile when count > 0
+    for (const c of editCategories) {
+      if (c.category_name === 'Perdidas' && c.count > 0) {
+        if (!c.profile_name || c.profile_name.trim() === '') {
+          alert('Informe o perfil do veículo para categorias Perdidas')
+          return
+        }
+      }
+      if (c.category_name === 'Indisponíveis' && c.count > 0) {
+        const plates = c.lost_plates || []
+        const filled = plates.filter(p => p && p.plate_number && p.plate_number.trim() !== '' && p.reason && p.reason.trim() !== '')
+        if (filled.length !== c.count) {
+          alert(`Informe ${c.count} placa(s) e motivo(s) para as viagens Indisponíveis`)
+          return
+        }
+      }
+    }
+
+    // Ensure Spot/Parado total matches capacities_spot
+    const spotCat = editCategories.find(c => c.category_name === 'Spot/Parado')
+    if (spotCat) {
+      const totalSpot = editCapacitiesSpot.reduce((s, cap) => s + (cap.vehicle_count || 0), 0)
+      if (spotCat.count !== totalSpot) {
+        alert(`A soma dos veículos em SPOT (${totalSpot}) deve ser igual à quantidade em Spot/Parado (${spotCat.count})`)
+        return
+      }
+    }
+
     setSavingEdit(true)
     try {
       const token = localStorage.getItem('admin_token')

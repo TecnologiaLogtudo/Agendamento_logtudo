@@ -70,9 +70,23 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
         if not company:
             raise HTTPException(status_code=404, detail="Empresa não encontrada. Tente recarregar a página para atualizar a lista de empresas.")
 
-        # look up profile weights from database once
+        # gather referenced profile names from capacities and categories
         profile_names = {c.profile_name for c in schedule_data.capacities}
         profile_names.update({c.profile_name for c in schedule_data.capacities_spot})
+        # include profiles referenced on categories (eg. Perdidas)
+        profile_names.update({c.profile_name for c in schedule_data.categories if c.profile_name})
+        # remove empty strings
+        profile_names = {p for p in profile_names if p}
+
+        # validate that referenced profiles exist in DB
+        if profile_names:
+            q_exist = await session.execute(
+                select(CapacityProfile.name).where(CapacityProfile.name.in_(profile_names))
+            )
+            existing = {r[0] for r in q_exist.all()}
+            missing = profile_names - existing
+            if missing:
+                raise HTTPException(status_code=400, detail=f"Perfis não encontrados: {', '.join(sorted(missing))}")
         profile_weights = {}
         if profile_names:
             query = await session.execute(
@@ -232,12 +246,28 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
             if not schedule:
                 raise HTTPException(status_code=404, detail="Agendamento não encontrado")
 
-            # lookup profile weights
+            # gather referenced profile names from capacities and categories for validation
             profile_names = {c.profile_name for c in schedule_data.capacities}
             profile_names.update({c.profile_name for c in schedule_data.capacities_spot})
-            profile_weights = {}
+            profile_names.update({c.profile_name for c in schedule_data.categories if c.profile_name})
+            profile_names = {p for p in profile_names if p}
+
+            # validate existence of referenced profiles
             if profile_names:
-                q = await session.execute(select(CapacityProfile).where(CapacityProfile.name.in_(profile_names)))
+                q_exist = await session.execute(
+                    select(CapacityProfile.name).where(CapacityProfile.name.in_(profile_names))
+                )
+                existing = {r[0] for r in q_exist.all()}
+                missing = profile_names - existing
+                if missing:
+                    raise HTTPException(status_code=400, detail=f"Perfis não encontrados: {', '.join(sorted(missing))}")
+
+            # lookup profile weights for capacity calculations
+            profile_weights = {}
+            cap_names = {c.profile_name for c in schedule_data.capacities}.union({c.profile_name for c in schedule_data.capacities_spot})
+            cap_names = {p for p in cap_names if p}
+            if cap_names:
+                q = await session.execute(select(CapacityProfile).where(CapacityProfile.name.in_(cap_names)))
                 for p in q.scalars().all():
                     profile_weights[p.name] = p.weight
 
