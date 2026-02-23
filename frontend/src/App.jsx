@@ -3,6 +3,7 @@ import { Truck, LayoutDashboard, PlusCircle, History, FileDown } from 'lucide-re
 import Dashboard from './pages/Dashboard'
 import NewSchedule from './pages/NewSchedule'
 import ScheduleList from './pages/ScheduleList'
+import AdminSettings from './pages/AdminSettings'
 
 function Sidebar() {
   const location = useLocation()
@@ -11,6 +12,7 @@ function Sidebar() {
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/novo', icon: PlusCircle, label: 'Novo Agendamento' },
     { path: '/historico', icon: History, label: 'Histórico' },
+    { path: '/admin', icon: FileDown, label: 'Admin' },
   ]
   
   return (
@@ -68,6 +70,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/novo" element={<NewSchedule />} />
             <Route path="/historico" element={<ScheduleList />} />
+            <Route path="/admin" element={<AdminSettings />} />
           </Routes>
         </main>
       </div>

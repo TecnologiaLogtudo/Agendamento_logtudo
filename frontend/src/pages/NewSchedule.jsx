@@ -10,7 +10,8 @@ const PROFILES = [
   { name: 'Truck', weight: 14000 },
 ]
 
-const CATEGORIES = [
+// default list used until server-provided categories arrive
+const DEFAULT_CATEGORIES = [
   'Carros em rota',
   'Reentrega',
   'Em viagem',
@@ -20,7 +21,7 @@ const CATEGORIES = [
   'Perdidas',
 ]
 
-const UFS = ['BAHIA', 'CEARÁ', 'PERNAMBUCO']
+// UFs will be loaded from server
 
 
 function NewSchedule() {
@@ -33,7 +34,7 @@ function NewSchedule() {
   
   // Form state
   const [companyId, setCompanyId] = useState('')
-  const [uf, setUf] = useState('MG')
+  const [uf, setUf] = useState('')
   const [scheduleDate, setScheduleDate] = useState(() => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -41,8 +42,10 @@ function NewSchedule() {
   })
   
   const [categories, setCategories] = useState(
-    CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [] }))
+    DEFAULT_CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [], profile: '' }))
   )
+  const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES)
+  const [ufs, setUfs] = useState([])
   
   const [capacities, setCapacities] = useState(
     PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 }))
@@ -54,6 +57,8 @@ function NewSchedule() {
   
   useEffect(() => {
     fetchCompanies()
+    fetchUfs()
+    fetchCategories()
   }, [])
   
   const handleAuth = (token) => {
@@ -80,14 +85,40 @@ function NewSchedule() {
       setLoading(false)
     }
   }
+
+  const fetchUfs = async () => {
+    try {
+      const res = await axios.get('/api/companies/ufs')
+      setUfs(res.data)
+      if (res.data.length > 0) {
+        setUf(res.data[0])
+      }
+    } catch (err) {
+      console.error('Erro ao buscar UFs', err)
+    }
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get('/api/admin/categories')
+      const names = res.data.map(c => c.name)
+      setCategoryOptions(names)
+      setCategories(names.map(n => ({ name: n, count: 0, plates: [], profile: '' })))
+    } catch (err) {
+      console.error('Erro ao carregar categorias:', err)
+    }
+  }
   
   const handleCategoryChange = (index, value) => {
     const newCategories = [...categories]
     newCategories[index].count = parseInt(value) || 0
     
-    // Reset plates if count is 0
+    // Reset plates or profile if count is 0
     if (newCategories[index].count === 0) {
       newCategories[index].plates = []
+      if (newCategories[index].name === 'Perdidas') {
+        newCategories[index].profile = ''
+      }
     }
     // Initialize plates array if category is "Indisponíveis" and count > 0
     else if (newCategories[index].name === 'Indisponíveis' && newCategories[index].plates.length === 0) {
@@ -169,6 +200,15 @@ function NewSchedule() {
         return
       }
     }
+
+    // Validation for lost trips profile requirement
+    const lostTrips = categories.find(c => c.name === 'Perdidas')
+    if (lostTrips && lostTrips.count > 0) {
+      if (!lostTrips.profile || lostTrips.profile.trim() === '') {
+        setError('Informe o perfil do veículo para as viagens perdidas')
+        return
+      }
+    }
     
     // Validation for Spot/Parado category
     const spotCategory = categories.find(c => c.name === 'Spot/Parado')
@@ -205,6 +245,7 @@ function NewSchedule() {
           .map(c => ({
             category_name: c.name,
             count: c.count,
+            profile_name: c.profile || '',
             lost_plates: c.name === 'Indisponíveis' 
               ? c.plates
                   .filter(p => p.plate.trim() !== '' && p.reason.trim() !== '')
@@ -233,7 +274,8 @@ function NewSchedule() {
       setSuccess('Agendamento salvo com sucesso!')
       
       // Reset form
-      setCategories(CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [] })))
+      setCategories(CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [], profile: '' })))
+      // keep uf list intact
       setCapacities(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
       setCapacitiesSpot(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
       
@@ -323,7 +365,7 @@ function NewSchedule() {
                 className="w-full px-4 py-2 border-2 border-primary-300 bg-primary-50 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 required
               >
-                {UFS.map(item => (
+                {ufs.map(item => (
                   <option key={item} value={item}>
                     {item}
                   </option>
@@ -367,6 +409,29 @@ function NewSchedule() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   placeholder="0"
                 />
+
+                {/* profile selector for Perdidas */}
+                {category.name === 'Perdidas' && category.count > 0 && (
+                  <div className="mt-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Perfil do veículo (obrigatório)
+                    </label>
+                    <select
+                      value={category.profile || ''}
+                      onChange={(e) => {
+                        const newCats = [...categories]
+                        newCats[index].profile = e.target.value
+                        setCategories(newCats)
+                      }}
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">Selecione...</option>
+                      {PROFILES.map((p) => (
+                        <option key={p.name} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 
                 {/* Lost plates input */}
                 {category.name === 'Indisponíveis' && category.count > 0 && (

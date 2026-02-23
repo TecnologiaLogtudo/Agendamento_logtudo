@@ -49,7 +49,7 @@ async def export_schedules(
 
         # Tabela 1: Categorias
         headers_categories = [
-            "Data", "Empresa", "Categoria", "Quantidade", "Placas (Indisponíveis)"
+            "Data", "Empresa", "Categoria", "Quantidade", "Perfil", "Placas (Indisponíveis)"
         ]
         ws.append(headers_categories)
 
@@ -64,6 +64,7 @@ async def export_schedules(
                     company_name,
                     cat.category_name,
                     cat.count,
+                    cat.profile_name or "",
                     plates if cat.category_name == "Indisponíveis" else "-"
                 ])
 

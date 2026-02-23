@@ -32,6 +32,19 @@ async def upgrade_database():
                 except Exception:
                     # ignore if column already exists or database doesn't support simple alter
                     pass
+
+            # ensure `profile_name` column exists on schedule_categories
+            try:
+                result = await conn.execute(text("PRAGMA table_info('schedule_categories')"))
+                columns = [row[1] for row in result.fetchall()]
+                if 'profile_name' not in columns:
+                    print("Adding 'profile_name' column to schedule_categories table")
+                    await conn.execute(text("ALTER TABLE schedule_categories ADD COLUMN profile_name TEXT DEFAULT ''"))
+            except Exception:
+                try:
+                    await conn.execute(text("ALTER TABLE schedule_categories ADD COLUMN profile_name VARCHAR(255) DEFAULT ''"))
+                except Exception:
+                    pass
     except Exception as e:
         print(f"Erro ao atualizar banco de dados: {e}")
         print("Verifique a conexão com o banco (DATABASE_URL), talvez ele não esteja acessível a partir deste host.")

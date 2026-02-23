@@ -1,12 +1,11 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from ..auth import verify_admin
-from ..constants import PROFILE_WEIGHTS
+from ..auth import verify_collaborator, verify_admin
 from ..database import async_session
 from ..models import (
     Company,
@@ -15,6 +14,7 @@ from ..models import (
     ScheduleCapacity,
     ScheduleCapacitySpot,
     LostPlate,
+    CapacityProfile,
 )
 from ..schemas import (
     ScheduleCreate,
@@ -30,7 +30,7 @@ router = APIRouter()
 
 
 @router.post("/schedules", response_model=ScheduleResponse)
-async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depends(verify_admin)):
+async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depends(verify_collaborator)):
     # Validate lost plates (now called "Indisponíveis")
     for cat in schedule_data.categories:
         if cat.category_name == "Indisponíveis":
@@ -46,6 +46,13 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
                         status_code=400,
                         detail="Cada viagem indisponível precisa de placa e motivo"
                     )
+        # require profile when category is Perdidas
+        if cat.category_name == "Perdidas":
+            if not cat.profile_name or not cat.profile_name.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Para viagens perdidas, informe o perfil do veículo"
+                )
 
     # Validate capacities_spot match "Spot/Parado" category if present
     spot_cat = next((c for c in schedule_data.categories if c.category_name == "Spot/Parado"), None)
@@ -63,12 +70,23 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
         if not company:
             raise HTTPException(status_code=404, detail="Empresa não encontrada. Tente recarregar a página para atualizar a lista de empresas.")
 
+        # look up profile weights from database once
+        profile_names = {c.profile_name for c in schedule_data.capacities}
+        profile_names.update({c.profile_name for c in schedule_data.capacities_spot})
+        profile_weights = {}
+        if profile_names:
+            query = await session.execute(
+                select(CapacityProfile).where(CapacityProfile.name.in_(profile_names))
+            )
+            for p in query.scalars().all():
+                profile_weights[p.name] = p.weight
+
         # Calculate total capacity (regular) and prepare objects
         total_capacity = 0
         total_vehicles = 0
         capacities_to_add = []
         for cap in schedule_data.capacities:
-            weight = PROFILE_WEIGHTS.get(cap.profile_name, 0)
+            weight = profile_weights.get(cap.profile_name, 0)
             total_weight = cap.vehicle_count * weight
             total_capacity += total_weight
             total_vehicles += cap.vehicle_count
@@ -85,7 +103,7 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
         total_vehicles_spot = 0
         capacities_spot_to_add = []
         for cap in schedule_data.capacities_spot:
-            weight = PROFILE_WEIGHTS.get(cap.profile_name, 0)
+            weight = profile_weights.get(cap.profile_name, 0)
             total_weight = cap.vehicle_count * weight
             total_capacity_spot += total_weight
             total_vehicles_spot += cap.vehicle_count
@@ -106,6 +124,7 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
                 ScheduleCategory(
                     category_name=cat.category_name,
                     count=cat.count,
+                    profile_name=cat.profile_name or "",
                     lost_plates=[
                         LostPlate(plate_number=lp.plate_number, reason=lp.reason)
                         for lp in cat.lost_plates
@@ -145,6 +164,7 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
                     id=cat.id,
                     category_name=cat.category_name,
                     count=cat.count,
+                    profile_name=cat.profile_name,
                     lost_plates=[LostPlateCreate(plate_number=lp.plate_number, reason=lp.reason) for lp in cat.lost_plates]
                 )
                 for cat in schedule.categories
@@ -174,6 +194,126 @@ async def create_schedule(schedule_data: ScheduleCreate, authorized: bool = Depe
         )
 
         return result
+
+
+    @router.put("/schedules/{schedule_id}", response_model=ScheduleResponse)
+    async def update_schedule(schedule_id: int, schedule_data: ScheduleCreate, authorized: bool = Depends(verify_admin)):
+        # Only admin can update past schedules
+        # Validate similar rules as creation
+        for cat in schedule_data.categories:
+            if cat.category_name == "Indisponíveis":
+                if cat.count != len(cat.lost_plates):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Para {cat.count} viagens indisponíveis, informe {cat.count} placas e motivos"
+                    )
+                for lp in cat.lost_plates:
+                    if not lp.plate_number.strip() or not lp.reason.strip():
+                        raise HTTPException(status_code=400, detail="Cada viagem indisponível precisa de placa e motivo")
+            if cat.category_name == "Perdidas":
+                if not cat.profile_name or not cat.profile_name.strip():
+                    raise HTTPException(status_code=400, detail="Para viagens perdidas, informe o perfil do veículo")
+
+        spot_cat = next((c for c in schedule_data.categories if c.category_name == "Spot/Parado"), None)
+        if spot_cat:
+            total_spot_vehicles = sum(cap.vehicle_count for cap in schedule_data.capacities_spot)
+            if spot_cat.count != total_spot_vehicles:
+                raise HTTPException(status_code=400, detail=f"Para {spot_cat.count} veículos em Spot/Parado informe {spot_cat.count} veículos de capacidade SPOT")
+
+        async with async_session() as session:
+            # load schedule with relationships
+            query = select(Schedule).where(Schedule.id == schedule_id).options(
+                selectinload(Schedule.categories).selectinload(ScheduleCategory.lost_plates),
+                selectinload(Schedule.capacities),
+                selectinload(Schedule.capacities_spot)
+            )
+            result_exec = await session.execute(query)
+            schedule = result_exec.scalars().first()
+            if not schedule:
+                raise HTTPException(status_code=404, detail="Agendamento não encontrado")
+
+            # lookup profile weights
+            profile_names = {c.profile_name for c in schedule_data.capacities}
+            profile_names.update({c.profile_name for c in schedule_data.capacities_spot})
+            profile_weights = {}
+            if profile_names:
+                q = await session.execute(select(CapacityProfile).where(CapacityProfile.name.in_(profile_names)))
+                for p in q.scalars().all():
+                    profile_weights[p.name] = p.weight
+
+            # build new relations
+            capacities_to_add = []
+            total_capacity = 0
+            total_vehicles = 0
+            for cap in schedule_data.capacities:
+                weight = profile_weights.get(cap.profile_name, 0)
+                total_weight = cap.vehicle_count * weight
+                total_capacity += total_weight
+                total_vehicles += cap.vehicle_count
+                capacities_to_add.append(ScheduleCapacity(profile_name=cap.profile_name, vehicle_count=cap.vehicle_count, total_weight_kg=total_weight))
+
+            capacities_spot_to_add = []
+            total_capacity_spot = 0
+            total_vehicles_spot = 0
+            for cap in schedule_data.capacities_spot:
+                weight = profile_weights.get(cap.profile_name, 0)
+                total_weight = cap.vehicle_count * weight
+                total_capacity_spot += total_weight
+                total_vehicles_spot += cap.vehicle_count
+                capacities_spot_to_add.append(ScheduleCapacitySpot(profile_name=cap.profile_name, vehicle_count=cap.vehicle_count, total_weight_kg=total_weight))
+
+            # categories
+            categories_to_add = []
+            for cat in schedule_data.categories:
+                categories_to_add.append(
+                    ScheduleCategory(
+                        category_name=cat.category_name,
+                        count=cat.count,
+                        profile_name=cat.profile_name or "",
+                        lost_plates=[LostPlate(plate_number=lp.plate_number, reason=lp.reason) for lp in cat.lost_plates]
+                    )
+                )
+
+            # apply updates
+            schedule.uf = schedule_data.uf.upper()
+            schedule.schedule_date = schedule_data.schedule_date
+            schedule.categories = categories_to_add
+            schedule.capacities = capacities_to_add
+            schedule.capacities_spot = capacities_spot_to_add
+            schedule.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+            session.add(schedule)
+            try:
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                print(f"Erro ao atualizar agendamento: {e}")
+                raise HTTPException(status_code=500, detail=f"Erro ao atualizar no banco: {str(e)}")
+
+            # re-fetch for response
+            resq = select(Schedule).where(Schedule.id == schedule.id).options(
+                selectinload(Schedule.categories).selectinload(ScheduleCategory.lost_plates),
+                selectinload(Schedule.capacities),
+                selectinload(Schedule.capacities_spot)
+            )
+            r = await session.execute(resq)
+            schedule = r.scalars().first()
+
+            return ScheduleResponse(
+                id=schedule.id,
+                company_id=schedule.company_id,
+                uf=schedule.uf,
+                schedule_date=schedule.schedule_date,
+                created_at=schedule.created_at,
+                updated_at=schedule.updated_at,
+                categories=[ScheduleCategoryResponse(id=cat.id, category_name=cat.category_name, count=cat.count, profile_name=cat.profile_name, lost_plates=[LostPlateCreate(plate_number=lp.plate_number, reason=lp.reason) for lp in cat.lost_plates]) for cat in schedule.categories],
+                capacities=[ScheduleCapacityResponse(id=cap.id, profile_name=cap.profile_name, vehicle_count=cap.vehicle_count, total_weight_kg=cap.total_weight_kg) for cap in schedule.capacities],
+                capacities_spot=[ScheduleCapacitySpotResponse(id=cap.id, profile_name=cap.profile_name, vehicle_count=cap.vehicle_count, total_weight_kg=cap.total_weight_kg) for cap in schedule.capacities_spot],
+                total_capacity_kg=total_capacity,
+                total_capacity_spot_kg=total_capacity_spot,
+                total_vehicles=total_vehicles,
+                total_vehicles_spot=total_vehicles_spot
+            )
 
 
 @router.get("/schedules", response_model=List[ScheduleResponse])
@@ -222,6 +362,7 @@ async def get_schedules(
                         id=cat.id,
                         category_name=cat.category_name,
                         count=cat.count,
+                        profile_name=cat.profile_name,
                         lost_plates=[LostPlateCreate(plate_number=lp.plate_number, reason=lp.reason) for lp in cat.lost_plates]
                     )
                     for cat in schedule.categories

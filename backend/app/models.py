@@ -11,7 +11,12 @@ class Company(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True)
+    uf: Mapped[str] = mapped_column(default="MG")  # retained for backward compatibility
     schedules: Mapped[List["Schedule"]] = relationship(back_populates="company")
+    capacity_profiles: Mapped[List["CapacityProfile"]] = relationship(
+        secondary="capacity_profile_companies",
+        back_populates="companies"
+    )
 
 
 class Schedule(Base):
@@ -22,6 +27,7 @@ class Schedule(Base):
     uf: Mapped[str] = mapped_column(default="MG")
     schedule_date: Mapped[date]
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at: Mapped[datetime] | None = mapped_column(nullable=True)
 
     company: Mapped["Company"] = relationship(back_populates="schedules")
     categories: Mapped[List["ScheduleCategory"]] = relationship(
@@ -42,11 +48,47 @@ class ScheduleCategory(Base):
     schedule_id: Mapped[int] = mapped_column(ForeignKey("schedules.id"))
     category_name: Mapped[str]
     count: Mapped[int] = mapped_column(default=0)
+    profile_name: Mapped[str] = mapped_column(default="")  # filled when Perdidas
 
     schedule: Mapped["Schedule"] = relationship(back_populates="categories")
     lost_plates: Mapped[List["LostPlate"]] = relationship(
         back_populates="schedule_category", cascade="all, delete-orphan"
     )
+
+
+class Uf(Base):
+    __tablename__ = "ufs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True)
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True)
+
+
+class CapacityProfile(Base):
+    __tablename__ = "capacity_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True)
+    weight: Mapped[int] = mapped_column(default=0)
+    spot: Mapped[bool] = mapped_column(default=False)
+
+    companies: Mapped[List["Company"]] = relationship(
+        secondary="capacity_profile_companies",
+        back_populates="capacity_profiles"
+    )
+
+
+class CapacityProfileCompany(Base):
+    __tablename__ = "capacity_profile_companies"
+
+    profile_id: Mapped[int] = mapped_column(ForeignKey("capacity_profiles.id"), primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), primary_key=True)
 
 
 class LostPlate(Base):

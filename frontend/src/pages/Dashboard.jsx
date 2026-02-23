@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { X } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import { Truck, Package, AlertTriangle, TrendingUp } from 'lucide-react'
 
@@ -16,6 +17,13 @@ function Dashboard() {
   const [companies, setCompanies] = useState([])
   const [profiles, setProfiles] = useState([])
   const [ufs, setUfs] = useState([])
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState(null)
+  const [editCategories, setEditCategories] = useState([])
+  const [editCapacities, setEditCapacities] = useState([])
+  const [editCapacitiesSpot, setEditCapacitiesSpot] = useState([])
+  const [savingEdit, setSavingEdit] = useState(false)
   
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -33,6 +41,16 @@ function Dashboard() {
       }
     }
     fetchInitialData()
+    // detect role from token
+    try {
+      const token = localStorage.getItem('admin_token')
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+        setIsAdmin(payload.role === 'admin')
+      }
+    } catch (e) {
+      setIsAdmin(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -55,6 +73,68 @@ function Dashboard() {
       console.error('Erro ao buscar métricas:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const openEditModal = (schedule) => {
+    setEditingSchedule(schedule)
+    setEditCategories(schedule.categories.map(c => ({ ...c })))
+    setEditCapacities(schedule.capacities.map(c => ({ ...c })))
+    setEditCapacitiesSpot(schedule.capacities_spot.map(c => ({ ...c })))
+    setEditModalOpen(true)
+  }
+
+  const closeEditModal = () => {
+    setEditModalOpen(false)
+    setEditingSchedule(null)
+    setEditCategories([])
+    setEditCapacities([])
+    setEditCapacitiesSpot([])
+  }
+
+  const handleEditCategoryChange = (index, field, value) => {
+    const copy = [...editCategories]
+    copy[index] = { ...copy[index], [field]: field === 'count' ? parseInt(value) || 0 : value }
+    setEditCategories(copy)
+  }
+
+  const handleEditCapacityChange = (index, value, spot=false) => {
+    if (spot) {
+      const copy = [...editCapacitiesSpot]
+      copy[index] = { ...copy[index], vehicle_count: parseInt(value) || 0 }
+      setEditCapacitiesSpot(copy)
+    } else {
+      const copy = [...editCapacities]
+      copy[index] = { ...copy[index], vehicle_count: parseInt(value) || 0 }
+      setEditCapacities(copy)
+    }
+  }
+
+  const submitEdit = async () => {
+    if (!editingSchedule) return
+    setSavingEdit(true)
+    try {
+      const token = localStorage.getItem('admin_token')
+      const payload = {
+        company_id: editingSchedule.company_id,
+        uf: editingSchedule.uf,
+        schedule_date: editingSchedule.schedule_date,
+        categories: editCategories.map(c => ({ category_name: c.category_name, count: c.count, profile_name: c.profile_name || '', lost_plates: c.lost_plates || [] })),
+        capacities: editCapacities.map(c => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
+        capacities_spot: editCapacitiesSpot.map(c => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
+      }
+
+      await axios.put(`/api/schedules/${editingSchedule.id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      closeEditModal()
+      fetchMetrics()
+    } catch (err) {
+      console.error('Erro ao atualizar agendamento:', err)
+      alert(err.response?.data?.detail || 'Erro ao atualizar')
+    } finally {
+      setSavingEdit(false)
     }
   }
   
@@ -150,6 +230,63 @@ function Dashboard() {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
           />
         </div>
+          {editModalOpen && editingSchedule && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg w-full max-w-2xl p-6 relative">
+                <button onClick={closeEditModal} className="absolute right-4 top-4 text-gray-500"><X /></button>
+                <h3 className="text-lg font-semibold mb-4">Editar Agendamento - {editingSchedule.schedule_date.split('-').reverse().join('/')}</h3>
+
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium">Categorias</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                      {editCategories.map((cat, idx) => (
+                        <div key={idx} className="border p-3 rounded">
+                          <div className="text-sm font-medium">{cat.category_name}</div>
+                          <input type="number" min="0" value={cat.count || 0} onChange={(e) => handleEditCategoryChange(idx, 'count', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded" />
+                          {cat.category_name === 'Perdidas' && (
+                            <select value={cat.profile_name || ''} onChange={(e) => handleEditCategoryChange(idx, 'profile_name', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded">
+                              <option value="">Selecione...</option>
+                              {profiles.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                            </select>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium">Capacidades</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+                      {editCapacities.map((cap, idx) => (
+                        <div key={idx} className="border p-3 rounded">
+                          <div className="text-sm font-medium">{cap.profile_name}</div>
+                          <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value, false)} className="mt-2 w-full px-2 py-1 border rounded" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium">Capacidades - SPOT</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+                      {editCapacitiesSpot.map((cap, idx) => (
+                        <div key={idx} className="border p-3 rounded">
+                          <div className="text-sm font-medium">{cap.profile_name}</div>
+                          <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value, true)} className="mt-2 w-full px-2 py-1 border rounded" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button onClick={closeEditModal} className="px-4 py-2 border rounded">Cancelar</button>
+                  <button onClick={submitEdit} disabled={savingEdit} className="px-4 py-2 bg-primary-600 text-white rounded">{savingEdit ? 'Salvando...' : 'Salvar'}</button>
+                </div>
+              </div>
+            </div>
+          )}
       </div>
       
       {/* Cards */}
@@ -264,13 +401,17 @@ function Dashboard() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veículos</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacidade</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categorias</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {metrics?.recent_schedules?.map((schedule) => (
                 <tr key={schedule.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                    {schedule.schedule_date.split('-').reverse().join('/')}
+                      {schedule.schedule_date.split('-').reverse().join('/')}
+                      {schedule.updated_at && (
+                        <div className="text-xs text-gray-400">Atualizado em: {new Date(schedule.updated_at).toLocaleDateString('pt-BR')}</div>
+                      )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                     {companies.find(c => c.id === schedule.company_id)?.name || `Empresa ${schedule.company_id}`}
@@ -299,11 +440,21 @@ function Dashboard() {
                       ))}
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {isAdmin && (
+                      <button
+                        onClick={() => openEditModal(schedule)}
+                        className="px-3 py-1 bg-primary-600 text-white rounded text-sm"
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {(!metrics?.recent_schedules || metrics.recent_schedules.length === 0) && (
                 <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                     Nenhum agendamento encontrado
                   </td>
                 </tr>

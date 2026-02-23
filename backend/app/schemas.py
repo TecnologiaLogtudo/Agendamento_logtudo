@@ -15,6 +15,7 @@ class LoginRequest(BaseModel):
 class ScheduleCategoryCreate(BaseModel):
     category_name: str
     count: int
+    profile_name: Optional[str] = None
     lost_plates: List[LostPlateCreate] = []
 
 
@@ -41,6 +42,7 @@ class ScheduleCategoryResponse(BaseModel):
     id: int
     category_name: str
     count: int
+    profile_name: Optional[str] = None
     lost_plates: List[LostPlateCreate]
 
     class Config:
@@ -73,6 +75,7 @@ class ScheduleResponse(BaseModel):
     uf: str
     schedule_date: date
     created_at: datetime
+    updated_at: Optional[datetime] = None
     categories: List[ScheduleCategoryResponse]
     capacities: List[ScheduleCapacityResponse]
     capacities_spot: List[ScheduleCapacitySpotResponse]
@@ -88,6 +91,48 @@ class ScheduleResponse(BaseModel):
 class CompanyResponse(BaseModel):
     id: int
     name: str
+
+    class Config:
+        from_attributes = True
+
+
+class UfCreate(BaseModel):
+    name: str
+
+
+class UfResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class CategoryCreate(BaseModel):
+    name: str
+
+
+class CategoryResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class CapacityProfileCreate(BaseModel):
+    name: str
+    weight: int
+    spot: bool = False
+    company_ids: List[int]
+
+
+class CapacityProfileResponse(BaseModel):
+    id: int
+    name: str
+    weight: int
+    spot: bool
+    company_ids: List[int]
 
     class Config:
         from_attributes = True

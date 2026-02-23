@@ -117,6 +117,7 @@ async def get_dashboard_metrics(
                         id=cat.id,
                         category_name=cat.category_name,
                         count=cat.count,
+                        profile_name=cat.profile_name,
                         lost_plates=[LostPlateCreate(plate_number=lp.plate_number) for lp in cat.lost_plates]
                     )
                     for cat in schedule.categories

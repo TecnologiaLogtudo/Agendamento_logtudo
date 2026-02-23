@@ -14,6 +14,7 @@ from .routers import (
     schedules,
     dashboard,
     export as export_router,
+    admin,
 )
 
 
@@ -64,5 +65,8 @@ def create_app() -> FastAPI:
     app.include_router(schedules.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(export_router.router, prefix="/api")
+    from .routers import auth as auth_router
+    app.include_router(auth_router.router, prefix="/api")
+    app.include_router(admin.router, prefix="/api")
 
     return app
