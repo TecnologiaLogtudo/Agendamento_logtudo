@@ -11,7 +11,7 @@ class Company(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True)
-    uf: Mapped[str] = mapped_column(default="MG")  # retained for backward compatibility
+    uf: Mapped[str] = mapped_column(default="BAHIA")  # retained for backward compatibility
     vehicle_goal: Mapped[int] = mapped_column(default=0)
     schedules: Mapped[List["Schedule"]] = relationship(back_populates="company")
     capacity_profiles: Mapped[List["CapacityProfile"]] = relationship(
@@ -25,7 +25,7 @@ class Schedule(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))
-    uf: Mapped[str] = mapped_column(default="MG")
+    uf: Mapped[str] = mapped_column(default="BAHIA")
     schedule_date: Mapped[date]
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
