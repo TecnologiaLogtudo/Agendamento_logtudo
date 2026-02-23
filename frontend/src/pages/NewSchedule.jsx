@@ -46,6 +46,7 @@ function NewSchedule() {
   )
   const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES)
   const [ufs, setUfs] = useState([])
+  const [profiles, setProfiles] = useState(PROFILES)
   
   const [capacities, setCapacities] = useState(
     PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 }))
@@ -59,7 +60,24 @@ function NewSchedule() {
     fetchCompanies()
     fetchUfs()
     fetchCategories()
+    fetchProfiles()
   }, [])
+
+  const fetchProfiles = async () => {
+    try {
+      const res = await axios.get('/api/profiles')
+      const mapped = res.data.map(p => ({ name: p.name, weight: p.weight_kg ?? p.weight ?? 0, spot: p.spot ?? false }))
+      setProfiles(mapped)
+      // if capacities are still all zero, initialize them from server profiles
+      const allZero = capacities.every(c => !c.count)
+      if (allZero) {
+        setCapacities(mapped.map(p => ({ name: p.name, weight: p.weight, count: 0 })))
+        setCapacitiesSpot(mapped.map(p => ({ name: p.name, weight: p.weight, count: 0 })))
+      }
+    } catch (err) {
+      console.error('Erro ao buscar perfis:', err)
+    }
+  }
   
   const handleAuth = (token) => {
     localStorage.setItem('admin_token', token)
@@ -208,6 +226,12 @@ function NewSchedule() {
         setError('Informe o perfil do veículo para as viagens perdidas')
         return
       }
+        // ensure selected profile exists
+        const profileNames = profiles.map(p => p.name)
+        if (!profileNames.includes(lostTrips.profile)) {
+          setError('Perfil selecionado para Perdidas é inválido')
+          return
+        }
     }
     
     // Validation for Spot/Parado category
@@ -274,7 +298,7 @@ function NewSchedule() {
       setSuccess('Agendamento salvo com sucesso!')
       
       // Reset form
-      setCategories(CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [], profile: '' })))
+      setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '' })))
       // keep uf list intact
       setCapacities(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
       setCapacitiesSpot(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
@@ -426,7 +450,7 @@ function NewSchedule() {
                       className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     >
                       <option value="">Selecione...</option>
-                      {PROFILES.map((p) => (
+                      {profiles.map((p) => (
                         <option key={p.name} value={p.name}>{p.name}</option>
                       ))}
                     </select>
@@ -577,9 +601,9 @@ function NewSchedule() {
           <button
             type="button"
             onClick={() => {
-              setCategories(CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [] })))
-              setCapacities(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
-              setCapacitiesSpot(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
+              setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [] })))
+              setCapacities(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
+              setCapacitiesSpot(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
               setError(null)
               setSuccess(null)
             }}

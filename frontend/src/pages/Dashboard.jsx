@@ -24,6 +24,7 @@ function Dashboard() {
   const [editCapacities, setEditCapacities] = useState([])
   const [editCapacitiesSpot, setEditCapacitiesSpot] = useState([])
   const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState(null)
   
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -81,6 +82,7 @@ function Dashboard() {
     setEditCategories(schedule.categories.map(c => ({ ...c })))
     setEditCapacities(schedule.capacities.map(c => ({ ...c })))
     setEditCapacitiesSpot(schedule.capacities_spot.map(c => ({ ...c })))
+    setEditError(null)
     setEditModalOpen(true)
   }
 
@@ -90,6 +92,7 @@ function Dashboard() {
     setEditCategories([])
     setEditCapacities([])
     setEditCapacitiesSpot([])
+    setEditError(null)
   }
 
   const handleEditCategoryChange = (index, field, value) => {
@@ -118,7 +121,7 @@ function Dashboard() {
     for (const c of editCategories) {
       if (c.category_name === 'Perdidas' && c.count > 0) {
         if (!c.profile_name || c.profile_name.trim() === '') {
-          alert('Informe o perfil do veículo para categorias Perdidas')
+          setEditError('Informe o perfil do veículo para categorias Perdidas')
           return
         }
       }
@@ -126,7 +129,7 @@ function Dashboard() {
         const plates = c.lost_plates || []
         const filled = plates.filter(p => p && p.plate_number && p.plate_number.trim() !== '' && p.reason && p.reason.trim() !== '')
         if (filled.length !== c.count) {
-          alert(`Informe ${c.count} placa(s) e motivo(s) para as viagens Indisponíveis`)
+          setEditError(`Informe ${c.count} placa(s) e motivo(s) para as viagens Indisponíveis`)
           return
         }
       }
@@ -136,10 +139,10 @@ function Dashboard() {
     const spotCat = editCategories.find(c => c.category_name === 'Spot/Parado')
     if (spotCat) {
       const totalSpot = editCapacitiesSpot.reduce((s, cap) => s + (cap.vehicle_count || 0), 0)
-      if (spotCat.count !== totalSpot) {
-        alert(`A soma dos veículos em SPOT (${totalSpot}) deve ser igual à quantidade em Spot/Parado (${spotCat.count})`)
-        return
-      }
+        if (spotCat.count !== totalSpot) {
+          setEditError(`A soma dos veículos em SPOT (${totalSpot}) deve ser igual à quantidade em Spot/Parado (${spotCat.count})`)
+          return
+        }
     }
 
     setSavingEdit(true)
@@ -162,7 +165,7 @@ function Dashboard() {
       fetchMetrics()
     } catch (err) {
       console.error('Erro ao atualizar agendamento:', err)
-      alert(err.response?.data?.detail || 'Erro ao atualizar')
+      setEditError(err.response?.data?.detail || 'Erro ao atualizar')
     } finally {
       setSavingEdit(false)
     }
@@ -265,6 +268,11 @@ function Dashboard() {
               <div className="bg-white rounded-lg w-full max-w-2xl p-6 relative">
                 <button onClick={closeEditModal} className="absolute right-4 top-4 text-gray-500"><X /></button>
                 <h3 className="text-lg font-semibold mb-4">Editar Agendamento - {editingSchedule.schedule_date.split('-').reverse().join('/')}</h3>
+                {editError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
+                    {editError}
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   <div>
@@ -424,7 +432,7 @@ function Dashboard() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead>
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
