@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
-from .app import create_app
+from app import create_app
 
 app: FastAPI = create_app()
 
