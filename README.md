@@ -128,7 +128,7 @@ logisched/
 |--------|----------|-----------|
 | GET | `/api/companies` | Listar empresas |
 | GET | `/api/categories` | Listar categorias |
-| GET | `/api/profiles` | Listar perfis de veículos |
+| GET | `/api/profiles` | Listar perfis de veículos (aceita opcional `company_id` para filtrar por empresa) |
 | POST | `/api/schedules` | Criar agendamento |
 | GET | `/api/schedules` | Listar agendamentos |
 | GET | `/api/dashboard/metrics` | Métricas do dashboard |

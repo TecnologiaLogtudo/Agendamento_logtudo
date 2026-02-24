@@ -26,16 +26,15 @@ function Dashboard() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState(null)
   
+  // load companies and UFs once
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [companiesRes, profilesRes, ufsRes] = await Promise.all([
+        const [companiesRes, ufsRes] = await Promise.all([
           axios.get('/api/companies'),
-          axios.get('/api/profiles'),
           axios.get('/api/companies/ufs')
         ])
         setCompanies(companiesRes.data)
-        setProfiles(profilesRes.data)
         setUfs(ufsRes.data)
       } catch (error) {
         console.error('Erro ao buscar dados iniciais:', error)
@@ -54,9 +53,28 @@ function Dashboard() {
     }
   }, [])
 
+  // refresh metrics when any filter changes
   useEffect(() => {
     fetchMetrics()
   }, [companyFilter, startDate, endDate, profileFilter, ufFilter])
+
+  // reload profiles when company filter changes (empty = all)
+  useEffect(() => {
+    const loadProfiles = async () => {
+      try {
+        const url = companyFilter ? `/api/profiles?company_id=${companyFilter}` : '/api/profiles'
+        const res = await axios.get(url)
+        setProfiles(res.data)
+        // clear profile filter if it no longer exists
+        if (profileFilter && !res.data.some(p => p.name === profileFilter)) {
+          setProfileFilter('')
+        }
+      } catch (err) {
+        console.error('Erro ao carregar perfis:', err)
+      }
+    }
+    loadProfiles()
+  }, [companyFilter])
   
   const fetchMetrics = async () => {
     try {

@@ -61,20 +61,23 @@ function NewSchedule() {
     fetchCompanies()
     fetchUfs()
     fetchCategories()
-    fetchProfiles()
   }, [])
+
+  // whenever the selected company changes we need to reload profiles
+  // (and reset the capacity tables accordingly)
+  useEffect(() => {
+    if (companyId) fetchProfiles()
+  }, [companyId])
 
   const fetchProfiles = async () => {
     try {
-      const res = await axios.get('/api/profiles')
+      const url = companyId ? `/api/profiles?company_id=${companyId}` : '/api/profiles'
+      const res = await axios.get(url)
       const mapped = res.data.map(p => ({ name: p.name, weight: p.weight_kg ?? p.weight ?? 0, spot: p.spot ?? false }))
       setProfiles(mapped)
-      // if capacities are still all zero, initialize them from server profiles
-      const allZero = capacities.every(c => !c.count)
-      if (allZero) {
-        setCapacities(mapped.map(p => ({ name: p.name, weight: p.weight, count: 0 })))
-        setCapacitiesSpot(mapped.map(p => ({ name: p.name, weight: p.weight, count: 0 })))
-      }
+      // reset capacities to match whichever profiles we've just loaded
+      setCapacities(mapped.map(p => ({ name: p.name, weight: p.weight, count: 0 })))
+      setCapacitiesSpot(mapped.map(p => ({ name: p.name, weight: p.weight, count: 0 })))
     } catch (err) {
       console.error('Erro ao buscar perfis:', err)
     }

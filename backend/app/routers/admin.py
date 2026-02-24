@@ -113,8 +113,45 @@ async def create_profile(profile: CapacityProfileCreate, authorized: bool = Depe
 
 @router.delete("/admin/profiles/{profile_id}")
 async def delete_profile(profile_id: int, authorized: bool = Depends(verify_admin)):
+    """Remove a capacity profile after ensuring it's safe to delete.
+
+    - forbid deletion if the profile is still linked to any company
+      (capacity_profile_companies) or used in existing schedules.
+    - clean up association rows before deleting the profile itself.
+    """
     async with async_session() as session:
-        stmt = delete(CapacityProfile).where(CapacityProfile.id == profile_id)
-        await session.execute(stmt)
+        # ensure profile exists
+        profile = await session.get(CapacityProfile, profile_id)
+        if not profile:
+            raise HTTPException(status_code=404, detail="Perfil não encontrado")
+
+        # check for company associations
+        from ..models import CapacityProfileCompany, ScheduleCapacity
+
+        assoc = await session.execute(
+            select(CapacityProfileCompany).where(
+                CapacityProfileCompany.profile_id == profile_id
+            )
+        )
+        if assoc.scalars().first():
+            raise HTTPException(
+                status_code=400,
+                detail="Perfil está vinculado a uma ou mais empresas. Remova a ligação antes de excluir."
+            )
+
+        # check for schedules using this profile by name
+        used = await session.execute(
+            select(ScheduleCapacity).where(
+                ScheduleCapacity.profile_name == profile.name
+            )
+        )
+        if used.scalars().first():
+            raise HTTPException(
+                status_code=400,
+                detail="Perfil usado em agendamentos. Não é possível excluir."
+            )
+
+        # safe to delete
+        await session.execute(delete(CapacityProfile).where(CapacityProfile.id == profile_id))
         await session.commit()
         return {"ok": True}

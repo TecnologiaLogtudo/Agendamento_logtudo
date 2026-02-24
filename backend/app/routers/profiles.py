@@ -10,11 +10,29 @@ router = APIRouter()
 
 
 @router.get("/profiles")
-async def get_profiles():
+async def get_profiles(company_id: int | None = None):
+    """Return vehicle capacity profiles.
+
+    If `company_id` is provided the result is limited to profiles that are
+    associated with that company (via the `capacity_profile_companies`
+    join table).  This keeps the frontend forms from showing profiles that
+    are irrelevant to the selected company.
+    """
     try:
         async with async_session() as session:
-            result = await session.execute(select(CapacityProfile))
-            profiles = result.scalars().all()
+            if company_id:
+                # join through the association table
+                from ..models import CapacityProfileCompany
+                stmt = (
+                    select(CapacityProfile)
+                    .join(CapacityProfileCompany)
+                    .where(CapacityProfileCompany.company_id == company_id)
+                )
+            else:
+                stmt = select(CapacityProfile)
+
+            result = await session.execute(stmt)
+            profiles = result.scalars().unique().all()
             return [
                 {"name": p.name, "weight_kg": p.weight, "spot": p.spot}
                 for p in profiles

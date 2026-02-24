@@ -122,8 +122,10 @@ function AdminSettings() {
     try {
       await axios.delete(path)
       fetchAll()
+      setSuccess('Registro excluído com sucesso')
     } catch (err) {
       console.error('delete erro', err)
+      setError(err.response?.data?.detail || 'Erro ao excluir registro')
     }
   }
 
@@ -317,16 +319,24 @@ function AdminSettings() {
           </button>
         </div>
         <ul>
-          {profiles.map(p => (
-            <li key={p.id} className="flex justify-between">
-              <span>
-                {p.name} ({p.weight}kg) {p.spot && '[SPOT]'} - empresas: {p.company_ids.join(', ')}
-              </span>
-              <button onClick={() => handleDelete(`/api/admin/profiles/${p.id}`)} className="text-red-500">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </li>
-          ))}
+          {profiles.map(p => {
+            // determine which companies this profile applies to
+            const names = p.company_ids && p.company_ids.length > 0
+              ? companies.filter(c => p.company_ids.includes(c.id)).map(c => c.name)
+              : companies.map(c => c.name)
+            const displayNames = names.length > 0 ? names.join(', ') : 'nenhuma'
+
+            return (
+              <li key={p.id} className="flex justify-between">
+                <span>
+                  {p.name} ({p.weight}kg) {p.spot && '[SPOT]'} - empresas: {displayNames}
+                </span>
+                <button onClick={() => handleDelete(`/api/admin/profiles/${p.id}`)} className="text-red-500">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </li>
+            )
+          })}
         </ul>
       </section>
     </div>
