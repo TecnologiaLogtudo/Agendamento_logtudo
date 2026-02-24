@@ -24,6 +24,7 @@ function AdminSettings() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newProfile, setNewProfile] = useState({ name: '', weight: 0, spot: false, company_ids: [] })
   const [editingCompany, setEditingCompany] = useState(null)
+  const [editingProfile, setEditingProfile] = useState(null)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
 
@@ -118,6 +119,19 @@ function AdminSettings() {
     }
   }
 
+  const handleUpdateProfile = async () => {
+    if (!editingProfile) return;
+    try {
+      const { id, ...profileData } = editingProfile;
+      await axios.put(`/api/admin/profiles/${id}`, profileData);
+      setEditingProfile(null);
+      fetchAll();
+      setSuccess('Perfil atualizado');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao atualizar perfil');
+    }
+  }
+
   const handleDelete = async (path) => {
     try {
       await axios.delete(path)
@@ -125,7 +139,12 @@ function AdminSettings() {
       setSuccess('Registro excluído com sucesso')
     } catch (err) {
       console.error('delete erro', err)
-      setError(err.response?.data?.detail || 'Erro ao excluir registro')
+      const errorMsg = err.response?.data?.detail || 'Erro ao excluir registro'
+      setError(errorMsg)
+      // Log full response for debugging
+      if (err.response?.status === 400) {
+        console.warn('Erro 400 - Motivo específico:', errorMsg)
+      }
     }
   }
 
@@ -327,13 +346,71 @@ function AdminSettings() {
             const displayNames = names.length > 0 ? names.join(', ') : 'nenhuma'
 
             return (
-              <li key={p.id} className="flex justify-between">
-                <span>
-                  {p.name} ({p.weight}kg) {p.spot && '[SPOT]'} - empresas: {displayNames}
-                </span>
-                <button onClick={() => handleDelete(`/api/admin/profiles/${p.id}`)} className="text-red-500">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <li key={p.id} className="flex justify-between p-2 hover:bg-gray-50">
+                {editingProfile?.id === p.id ? (
+                  <div className="w-full">
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        value={editingProfile.name}
+                        onChange={e => setEditingProfile({...editingProfile, name: e.target.value})}
+                        className="border px-2 py-1 flex-1"
+                        placeholder="Nome do perfil"
+                      />
+                      <input
+                        type="number"
+                        value={editingProfile.weight}
+                        onChange={e => setEditingProfile({...editingProfile, weight: parseInt(e.target.value) || 0})}
+                        className="border px-2 py-1 w-24"
+                        placeholder="Peso (kg)"
+                      />
+                    </div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={editingProfile.spot}
+                        onChange={e => setEditingProfile({...editingProfile, spot: e.target.checked})}
+                      />
+                      <label className="text-sm">Spot/Parado</label>
+                    </div>
+                    <div className="mb-2 flex gap-4 flex-wrap">
+                      {companies.map(c => (
+                        <label key={c.id} className="flex items-center gap-1 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={editingProfile.company_ids.includes(c.id)}
+                            onChange={e => {
+                              const ids = editingProfile.company_ids.slice()
+                              if (e.target.checked) {
+                                if (!ids.includes(c.id)) ids.push(c.id)
+                              } else {
+                                const idx = ids.indexOf(c.id)
+                                if (idx !== -1) ids.splice(idx, 1)
+                              }
+                              setEditingProfile({ ...editingProfile, company_ids: ids })
+                            }}
+                          />
+                          {c.name}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleUpdateProfile} className="text-green-600 px-2 py-1">Salvar</button>
+                      <button onClick={() => setEditingProfile(null)} className="text-gray-600 px-2 py-1">Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <span>
+                      {p.name} ({p.weight}kg) {p.spot && '[SPOT]'} - empresas: {displayNames}
+                    </span>
+                    <div className="flex gap-2">
+                      <button onClick={() => setEditingProfile({...p})} className="text-blue-600">Editar</button>
+                      <button onClick={() => handleDelete(`/api/admin/profiles/${p.id}`)} className="text-red-500">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </li>
             )
           })}

@@ -135,7 +135,7 @@ class CapacityProfileCreate(BaseModel):
     name: str
     weight: int
     spot: bool = False
-    company_ids: List[int]
+    company_ids: List[int] = []
 
 
 class CapacityProfileResponse(BaseModel):

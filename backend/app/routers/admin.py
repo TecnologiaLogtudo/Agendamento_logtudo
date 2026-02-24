@@ -94,9 +94,7 @@ async def list_profiles(authorized: bool = Depends(verify_admin)):
 async def create_profile(profile: CapacityProfileCreate, authorized: bool = Depends(verify_admin)):
     async with async_session() as session:
         new = CapacityProfile(name=profile.name, weight=profile.weight, spot=profile.spot)
-        # attach companies
-        if not profile.company_ids:
-            raise HTTPException(status_code=400, detail="É necessário selecionar ao menos uma empresa")
+        # attach companies (can be empty for global profiles)
         for cid in profile.company_ids:
             company = await session.get(Company, cid)
             if not company:
@@ -110,6 +108,48 @@ async def create_profile(profile: CapacityProfileCreate, authorized: bool = Depe
         except IntegrityError:
             await session.rollback()
             raise HTTPException(status_code=400, detail="Perfil já existe")
+
+@router.put("/admin/profiles/{profile_id}", response_model=CapacityProfileResponse)
+async def update_profile(profile_id: int, profile: CapacityProfileCreate, authorized: bool = Depends(verify_admin)):
+    """Update a capacity profile: name, weight, spot flag, and company associations."""
+    async with async_session() as session:
+        existing = await session.get(CapacityProfile, profile_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Perfil não encontrado")
+        
+        # update fields
+        existing.name = profile.name
+        existing.weight = profile.weight
+        existing.spot = profile.spot
+        
+        # update company associations
+        # remove all existing associations
+        await session.execute(
+            delete(CapacityProfileCompany).where(
+                CapacityProfileCompany.profile_id == profile_id
+            )
+        )
+        
+        # add new ones
+        if profile.company_ids:
+            for cid in profile.company_ids:
+                company = await session.get(Company, cid)
+                if not company:
+                    raise HTTPException(status_code=404, detail=f"Empresa {cid} não encontrada")
+                existing.companies.append(company)
+        
+        try:
+            await session.commit()
+            return CapacityProfileResponse(
+                id=existing.id,
+                name=existing.name,
+                weight=existing.weight,
+                spot=existing.spot,
+                company_ids=profile.company_ids or [],
+            )
+        except IntegrityError:
+            await session.rollback()
+            raise HTTPException(status_code=400, detail="Erro ao atualizar perfil")
 
 @router.delete("/admin/profiles/{profile_id}")
 async def delete_profile(profile_id: int, authorized: bool = Depends(verify_admin)):
