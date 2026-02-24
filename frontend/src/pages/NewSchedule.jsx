@@ -109,12 +109,10 @@ function NewSchedule() {
     try {
       const res = await axios.get('/api/companies/ufs')
       const serverUfs = res.data || []
-      // merge server UFs with existing defaults, keep unique values
-      const combined = Array.from(new Set([...ufs, ...serverUfs]))
-      setUfs(combined)
-      // only override selected UF if it's not present in the combined list
-      if (!combined.includes(uf) && combined.length > 0) {
-        setUf(combined[0])
+      setUfs(serverUfs)
+      // if no UF selected yet, default to first returned value
+      if (!uf && serverUfs.length > 0) {
+        setUf(serverUfs[0])
       }
     } catch (err) {
       console.error('Erro ao buscar UFs', err)
@@ -390,6 +388,9 @@ function NewSchedule() {
                 className="w-full px-4 py-2 border-2 border-primary-300 bg-primary-50 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 required
               >
+                <option value="" disabled hidden>
+                  Escolha uma UF
+                </option>
                 {ufs.map(item => (
                   <option key={item} value={item}>
                     {item}
