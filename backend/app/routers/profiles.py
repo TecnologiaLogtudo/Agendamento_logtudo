@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
 from ..database import async_session
-from ..models import CapacityProfile
+from ..models import CapacityProfile, Company
 
 router = APIRouter()
 
@@ -21,12 +21,16 @@ async def get_profiles(company_id: int | None = None):
     try:
         async with async_session() as session:
             if company_id:
-                # join through the association table
-                from ..models import CapacityProfileCompany
+                # when a company is specified we return profiles that either
+                # are explicitly linked to that company **or** have no
+                # associations at all (global profiles).
+                # using the relationship avoids writing manual joins.
                 stmt = (
                     select(CapacityProfile)
-                    .join(CapacityProfileCompany)
-                    .where(CapacityProfileCompany.company_id == company_id)
+                    .where(
+                        (~CapacityProfile.companies.any()) |
+                        (CapacityProfile.companies.any(Company.id == company_id))
+                    )
                 )
             else:
                 stmt = select(CapacityProfile)

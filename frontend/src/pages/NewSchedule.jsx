@@ -4,12 +4,6 @@ import { Plus, Trash2, Save, LogOut } from 'lucide-react'
 import AuthModal from '../components/AuthModal'
 import Toast from '../components/Toast'
 
-const PROFILES = [
-  { name: 'HR', weight: 1500 },
-  { name: '3/4', weight: 3500 },
-  { name: 'Toco', weight: 7000 },
-  { name: 'Truck', weight: 14000 },
-]
 
 // default list used until server-provided categories arrive
 const DEFAULT_CATEGORIES = [
@@ -35,7 +29,7 @@ function NewSchedule() {
   
   // Form state
   const [companyId, setCompanyId] = useState('')
-  const [uf, setUf] = useState('BAHIA')
+  const [uf, setUf] = useState('')
   const [scheduleDate, setScheduleDate] = useState(() => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -47,15 +41,11 @@ function NewSchedule() {
   )
   const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES)
   const [ufs, setUfs] = useState(['BAHIA', 'CEARÁ', 'PERNAMBUCO'])
-  const [profiles, setProfiles] = useState(PROFILES)
+  const [profiles, setProfiles] = useState([])
   
-  const [capacities, setCapacities] = useState(
-    PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 }))
-  )
+  const [capacities, setCapacities] = useState([])
   
-  const [capacitiesSpot, setCapacitiesSpot] = useState(
-    PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 }))
-  )
+  const [capacitiesSpot, setCapacitiesSpot] = useState([])
   
   useEffect(() => {
     fetchCompanies()
@@ -306,8 +296,8 @@ function NewSchedule() {
       // Reset form
       setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '' })))
       // keep uf list intact
-      setCapacities(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
-      setCapacitiesSpot(PROFILES.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
+      setCapacities(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
+      setCapacitiesSpot(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
       
     } catch (err) {
       console.error('Erro ao salvar:', err)
