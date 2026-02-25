@@ -23,12 +23,21 @@ if not DATABASE_URL:
 # choose connection arguments depending on dialect
 connect_args = {}
 if DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgresql+asyncpg"):
-    connect_args = {"server_settings": {"statement_timeout": "10000"}}  # Timeout de 10s para evitar travamentos (504)
+    connect_args = {
+        "server_settings": {"statement_timeout": "10000"},
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
+    }
 
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     pool_pre_ping=True,
+    pool_size=20,
+    max_overflow=10,
+    pool_recycle=300,
     connect_args=connect_args,
 )
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

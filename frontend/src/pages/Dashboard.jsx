@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { X } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
-import { Truck, Package, AlertTriangle, TrendingUp } from 'lucide-react'
+import { Truck, Package, AlertTriangle, TrendingUp, X } from 'lucide-react'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
