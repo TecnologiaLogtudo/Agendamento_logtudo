@@ -25,10 +25,6 @@ connect_args = {}
 if DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgresql+asyncpg"):
     connect_args = {
         "server_settings": {"statement_timeout": "10000"},
-        "keepalives": 1,
-        "keepalives_idle": 30,
-        "keepalives_interval": 10,
-        "keepalives_count": 5,
     }
 
 engine = create_async_engine(
