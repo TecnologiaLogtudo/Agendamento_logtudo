@@ -6,7 +6,7 @@ from jose import JWTError, jwt
 
 SECRET_KEY = os.getenv("SECRET_KEY", "sua_chave_secreta_padrao_desenvolvimento")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 horas
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24))
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")  # Senha Mestra
 COLLAB_PASSWORD = os.getenv("COLLAB_PASSWORD")  # Senha do colaborador
 
@@ -27,11 +27,16 @@ async def verify_admin(token: str = Depends(oauth2_scheme)):
         detail="Credenciais inválidas",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    forbidden_exception = HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Acesso negado: Requer privilégios de administrador",
+    )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         role: str = payload.get("role")
         if role != "admin":
-            raise credentials_exception
+            # Retorna 403 se o token for válido mas não for admin
+            raise forbidden_exception
     except JWTError:
         raise credentials_exception
     return True
