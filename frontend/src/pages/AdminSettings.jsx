@@ -156,9 +156,9 @@ function AdminSettings() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Administração</h1>
+    <div className="p-4 md:p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <h1 className="text-2xl font-bold text-gray-800">Administração</h1>
         <button
           onClick={handleLogout}
           className="text-red-600 hover:underline"
@@ -169,15 +169,15 @@ function AdminSettings() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold">Empresas</h2>
-        <div className="flex gap-2 mb-2">
+        <div className="flex flex-col md:flex-row gap-2 mb-2">
           <input
-            className="border px-2 py-1 flex-1"
+            className="border px-2 py-2 md:py-1 flex-1 rounded"
             value={newCompany.name}
             onChange={e => setNewCompany({...newCompany, name: e.target.value})}
             placeholder="Nome da empresa"
           />
           <input
-            className="border px-2 py-1 w-40"
+            className="border px-2 py-2 md:py-1 w-full md:w-40 rounded"
             value={newCompany.vehicle_goal}
             onChange={e => setNewCompany({...newCompany, vehicle_goal: parseInt(e.target.value) || 0})}
             placeholder="Meta de veículos/dia"
@@ -189,35 +189,35 @@ function AdminSettings() {
         </div>
         <ul>
           {companies.map(c => (
-            <li key={c.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
+            <li key={c.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-3 md:p-2 hover:bg-gray-50 border-b md:border-none">
               { editingCompany?.id === c.id ? (
-                  <>
+                  <div className="flex flex-col md:flex-row gap-2 w-full">
                       <input 
                           value={editingCompany.name} 
                           onChange={e => setEditingCompany({...editingCompany, name: e.target.value})}
-                          className="border px-2 py-1"
+                          className="border px-2 py-1 flex-1"
                       />
                       <input 
                           value={editingCompany.vehicle_goal} 
                           onChange={e => setEditingCompany({...editingCompany, vehicle_goal: parseInt(e.target.value) || 0})}
-                          className="border px-2 py-1 w-24"
+                          className="border px-2 py-1 w-full md:w-24"
                           type="number"
                       />
-                      <div>
-                          <button onClick={handleUpdateCompany} className="text-green-600 p-1">Salvar</button>
-                          <button onClick={() => setEditingCompany(null)} className="text-gray-600 p-1">Cancelar</button>
+                      <div className="flex gap-2 mt-2 md:mt-0">
+                          <button onClick={handleUpdateCompany} className="text-green-600 px-2 py-1 border border-green-600 rounded text-sm">Salvar</button>
+                          <button onClick={() => setEditingCompany(null)} className="text-gray-600 px-2 py-1 border border-gray-300 rounded text-sm">Cancelar</button>
                       </div>
-                  </>
+                  </div>
               ) : (
-                  <>
-                      <span>{c.name} - <span className="text-sm text-gray-600">Meta: {c.vehicle_goal} carros/dia</span></span>
+                  <div className="flex justify-between w-full items-center">
+                      <span className="py-1">{c.name} - <span className="text-sm text-gray-600">Meta: {c.vehicle_goal} carros/dia</span></span>
                       <div className="flex gap-2">
                           <button onClick={() => setEditingCompany({...c})} className="text-blue-600">Editar</button>
                           <button onClick={() => handleDelete(`/api/companies/${c.id}`)} className="text-red-500">
                               <Trash2 className="w-4 h-4" />
                           </button>
                       </div>
-                  </>
+                  </div>
               )}
             </li>
           ))}
@@ -226,9 +226,9 @@ function AdminSettings() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold">UFs</h2>
-        <div className="flex gap-2 mb-2">
+        <div className="flex flex-col md:flex-row gap-2 mb-2">
           <input
-            className="border px-2 py-1 flex-1"
+            className="border px-2 py-2 md:py-1 flex-1 rounded"
             value={newUfName}
             onChange={e => setNewUfName(e.target.value)}
             placeholder="Nome da UF"
@@ -239,7 +239,7 @@ function AdminSettings() {
         </div>
         <ul>
           {ufs.map(u => (
-            <li key={u.id} className="flex justify-between">
+            <li key={u.id} className="flex justify-between p-2 border-b md:border-none">
               {u.name}
               <button onClick={() => handleDelete(`/api/admin/ufs/${u.id}`)} className="text-red-500">
                 <Trash2 className="w-4 h-4" />
@@ -251,9 +251,9 @@ function AdminSettings() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold">Categorias</h2>
-        <div className="flex gap-2 mb-2">
+        <div className="flex flex-col md:flex-row gap-2 mb-2">
           <input
-            className="border px-2 py-1 flex-1"
+            className="border px-2 py-2 md:py-1 flex-1 rounded"
             value={newCategoryName}
             onChange={e => setNewCategoryName(e.target.value)}
             placeholder="Nome da categoria"
@@ -264,7 +264,7 @@ function AdminSettings() {
         </div>
         <ul>
           {categories.map(cat => (
-            <li key={cat.id} className="flex justify-between">
+            <li key={cat.id} className="flex justify-between p-2 border-b md:border-none">
               {cat.name}
               <button onClick={() => handleDelete(`/api/admin/categories/${cat.id}`)} className="text-red-500">
                 <Trash2 className="w-4 h-4" />
@@ -280,7 +280,7 @@ function AdminSettings() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Perfil</label>
             <input
-              className="border px-2 py-1 w-full rounded"
+              className="border px-2 py-2 md:py-1 w-full rounded"
               placeholder="Ex: Truck"
               value={newProfile.name}
               onChange={e => setNewProfile({ ...newProfile, name: e.target.value })}
@@ -289,7 +289,7 @@ function AdminSettings() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
             <input
-              className="border px-2 py-1 w-full rounded"
+              className="border px-2 py-2 md:py-1 w-full rounded"
               placeholder="Ex: 14000"
               type="number"
               value={newProfile.weight}
@@ -349,21 +349,21 @@ function AdminSettings() {
             const displayNames = names.length > 0 ? names.join(', ') : 'nenhuma'
 
             return (
-              <li key={p.id} className="flex justify-between p-2 hover:bg-gray-50">
+              <li key={p.id} className="flex flex-col md:flex-row justify-between p-3 md:p-2 hover:bg-gray-50 border-b md:border-none">
                 {editingProfile?.id === p.id ? (
                   <div className="w-full">
-                    <div className="flex gap-2 mb-2">
+                    <div className="flex flex-col md:flex-row gap-2 mb-2">
                       <input
                         value={editingProfile.name}
                         onChange={e => setEditingProfile({...editingProfile, name: e.target.value})}
-                        className="border px-2 py-1 flex-1"
+                        className="border px-2 py-2 md:py-1 flex-1 rounded"
                         placeholder="Nome do perfil"
                       />
                       <input
                         type="number"
                         value={editingProfile.weight}
                         onChange={e => setEditingProfile({...editingProfile, weight: parseInt(e.target.value) || 0})}
-                        className="border px-2 py-1 w-24"
+                        className="border px-2 py-2 md:py-1 w-full md:w-24 rounded"
                         placeholder="Peso (kg)"
                       />
                     </div>
@@ -397,13 +397,13 @@ function AdminSettings() {
                       ))}
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={handleUpdateProfile} className="text-green-600 px-2 py-1">Salvar</button>
-                      <button onClick={() => setEditingProfile(null)} className="text-gray-600 px-2 py-1">Cancelar</button>
+                      <button onClick={handleUpdateProfile} className="text-green-600 px-3 py-1 border border-green-600 rounded text-sm">Salvar</button>
+                      <button onClick={() => setEditingProfile(null)} className="text-gray-600 px-3 py-1 border border-gray-300 rounded text-sm">Cancelar</button>
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <span>
+                  <div className="flex justify-between w-full items-center">
+                    <span className="py-1">
                       {p.name} ({p.weight}kg) {p.spot && '[SPOT]'} - empresas: {displayNames}
                     </span>
                     <div className="flex gap-2">
@@ -412,7 +412,7 @@ function AdminSettings() {
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                  </>
+                  </div>
                 )}
               </li>
             )

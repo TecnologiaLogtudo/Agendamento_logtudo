@@ -213,8 +213,8 @@ function Dashboard() {
   
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
         <p className="text-gray-500">Visão geral dos agendamentos</p>
       </div>
       
@@ -282,9 +282,9 @@ function Dashboard() {
           />
         </div>
           {editModalOpen && editingSchedule && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg w-full max-w-2xl p-6 relative">
-                <button onClick={closeEditModal} className="absolute right-4 top-4 text-gray-500"><X /></button>
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+                <button onClick={closeEditModal} className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"><X /></button>
                 <h3 className="text-lg font-semibold mb-4">Editar Agendamento - {editingSchedule.schedule_date.split('-').reverse().join('/')}</h3>
                 {editError && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">

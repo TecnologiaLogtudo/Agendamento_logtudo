@@ -592,7 +592,7 @@ function NewSchedule() {
         </div>
         
         {/* Submit */}
-        <div className="flex justify-end gap-4">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 mt-6">
           <button
             type="button"
             onClick={() => {
@@ -602,14 +602,14 @@ function NewSchedule() {
               setError(null)
               setSuccess(null)
             }}
-            className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className="w-full sm:w-auto px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Limpar
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="w-full sm:w-auto px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Save className="w-5 h-5" />
             {saving ? 'Salvando...' : 'Salvar Agendamento'}

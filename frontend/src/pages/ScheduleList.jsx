@@ -89,13 +89,13 @@ function ScheduleList() {
   
   return (
     <div>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Histórico de Agendamentos</h1>
           <p className="text-gray-500">Lista de todos os agendamentos realizados</p>
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex gap-3 self-start md:self-center">
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
@@ -293,7 +293,7 @@ function ScheduleList() {
       
       {/* Summary */}
       {schedules.length > 0 && (
-        <div className="mt-6 flex gap-6">
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
             <p className="text-sm text-gray-500">Total de Registros</p>
             <p className="text-xl font-bold text-gray-800">{schedules.length}</p>
