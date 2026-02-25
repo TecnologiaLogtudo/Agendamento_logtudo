@@ -39,10 +39,13 @@ function AdminSettings() {
   }
 
   useEffect(() => {
-    fetchAll()
-  }, [])
+    if (authToken) {
+      fetchAll()
+    }
+  }, [authToken])
 
   const fetchAll = async () => {
+    setError(null)
     try {
       const [compRes, ufsRes, catRes, profRes] = await Promise.all([
         axios.get('/api/companies'),

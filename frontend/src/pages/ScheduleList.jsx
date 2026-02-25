@@ -241,15 +241,32 @@ function ScheduleList() {
                         {schedule.categories.map((cat) => (
                           <span
                             key={cat.id}
-                            className={`px-2 py-1 rounded-full text-xs ${
+                            className={`group relative cursor-help px-2 py-1 rounded-full text-xs ${
                               cat.category_name === 'Perdidas'
                                 ? 'bg-red-100 text-red-700'
+                                : cat.category_name === 'Indisponíveis'
+                                ? 'bg-amber-100 text-[#f59e0b]'
                                 : cat.category_name === 'Spot/Parado'
                                 ? 'bg-gray-100 text-gray-700'
                                 : 'bg-blue-100 text-blue-700'
                             }`}
                           >
                             {cat.category_name.split(' ')[0]}: {cat.count}
+                            
+                            {/* Tooltip para Indisponíveis */}
+                            {cat.category_name === 'Indisponíveis' && cat.lost_plates && cat.lost_plates.length > 0 && (
+                              <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal">
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-white"></div>
+                                <p className="font-semibold text-gray-700 mb-2 border-b pb-1 text-left">Motivos ({cat.count})</p>
+                                <div className="max-h-48 overflow-y-auto">
+                                  {cat.lost_plates.map((plate, idx) => (
+                                    <div key={idx} className="text-left mb-1 last:mb-0 text-xs leading-tight">
+                                      <span className="font-bold text-gray-800">{plate.plate_number || 'S/ Placa'}</span>: <span className="text-gray-600 italic">{plate.reason}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </span>
                         ))}
                       </div>
