@@ -37,7 +37,7 @@ function NewSchedule() {
   })
   
   const [categories, setCategories] = useState(
-    DEFAULT_CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [], profile: '' }))
+    DEFAULT_CATEGORIES.map((cat) => ({ name: cat, count: 0, plates: [], profile: '', items: cat === 'Perdidas' ? [{ count: 0, profile: '' }] : [] }))
   )
   const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES)
   const [ufs, setUfs] = useState(['BAHIA', 'CEARÁ', 'PERNAMBUCO'])
@@ -117,7 +117,7 @@ function NewSchedule() {
       const res = await axios.get('/api/admin/categories')
       const names = res.data.map(c => c.name)
       setCategoryOptions(names)
-      setCategories(names.map(n => ({ name: n, count: 0, plates: [], profile: '' })))
+      setCategories(names.map(n => ({ name: n, count: 0, plates: [], profile: '', items: n === 'Perdidas' ? [{ count: 0, profile: '' }] : [] })))
     } catch (err) {
       console.error('Erro ao carregar categorias:', err)
     }
@@ -130,15 +130,41 @@ function NewSchedule() {
     // Reset plates or profile if count is 0
     if (newCategories[index].count === 0) {
       newCategories[index].plates = []
-      if (newCategories[index].name === 'Perdidas') {
-        newCategories[index].profile = ''
-      }
     }
     // Initialize plates array if category is "Indisponíveis" and count > 0
     else if (newCategories[index].name === 'Indisponíveis' && newCategories[index].plates.length === 0) {
       newCategories[index].plates = [{ plate: '', reason: '' }]
     }
     
+    setCategories(newCategories)
+  }
+
+  const handlePerdidasItemChange = (catIndex, itemIndex, field, value) => {
+    const newCategories = [...categories]
+    const item = newCategories[catIndex].items[itemIndex]
+    
+    if (field === 'count') {
+      item.count = parseInt(value) || 0
+    } else if (field === 'profile') {
+      item.profile = value
+    }
+    
+    // Recalculate total count for the category
+    newCategories[catIndex].count = newCategories[catIndex].items.reduce((sum, i) => sum + i.count, 0)
+    
+    setCategories(newCategories)
+  }
+
+  const addPerdidasItem = (catIndex) => {
+    const newCategories = [...categories]
+    newCategories[catIndex].items.push({ count: 0, profile: '' })
+    setCategories(newCategories)
+  }
+
+  const removePerdidasItem = (catIndex, itemIndex) => {
+    const newCategories = [...categories]
+    newCategories[catIndex].items.splice(itemIndex, 1)
+    newCategories[catIndex].count = newCategories[catIndex].items.reduce((sum, i) => sum + i.count, 0)
     setCategories(newCategories)
   }
   
@@ -218,16 +244,17 @@ function NewSchedule() {
     // Validation for lost trips profile requirement
     const lostTrips = categories.find(c => c.name === 'Perdidas')
     if (lostTrips && lostTrips.count > 0) {
-      if (!lostTrips.profile || lostTrips.profile.trim() === '') {
-        setError('Informe o perfil do veículo para as viagens perdidas')
+      const invalidItem = lostTrips.items.find(i => i.count > 0 && (!i.profile || i.profile.trim() === ''))
+      if (invalidItem) {
+        setError('Informe o perfil do veículo para todas as viagens perdidas')
         return
       }
-        // ensure selected profile exists
-        const profileNames = profiles.map(p => p.name)
-        if (!profileNames.includes(lostTrips.profile)) {
-          setError('Perfil selecionado para Perdidas é inválido')
-          return
-        }
+      const profileNames = profiles.map(p => p.name)
+      const invalidProfile = lostTrips.items.find(i => i.count > 0 && !profileNames.includes(i.profile))
+      if (invalidProfile) {
+        setError(`Perfil selecionado "${invalidProfile.profile}" é inválido`)
+        return
+      }
     }
     
     // Validation for Spot/Parado category
@@ -261,17 +288,30 @@ function NewSchedule() {
         uf: uf,
         schedule_date: scheduleDate,
         categories: categories
-          .filter(c => c.count > 0)
-          .map(c => ({
-            category_name: c.name,
-            count: c.count,
-            profile_name: c.profile || '',
-            lost_plates: c.name === 'Indisponíveis' 
-              ? c.plates
-                  .filter(p => p.plate.trim() !== '' && p.reason.trim() !== '')
-                  .map(p => ({ plate_number: p.plate.trim().toUpperCase(), reason: p.reason.trim() }))
-              : []
-          })),
+          .flatMap(c => {
+            if (c.count === 0) return []
+            
+            // Special handling for Perdidas to support multiple profiles
+            if (c.name === 'Perdidas') {
+              return c.items
+                .filter(i => i.count > 0)
+                .map(i => ({
+                  category_name: c.name,
+                  count: i.count,
+                  profile_name: i.profile,
+                  lost_plates: []
+                }))
+            }
+
+            return [{
+              category_name: c.name,
+              count: c.count,
+              profile_name: c.profile || '',
+              lost_plates: c.name === 'Indisponíveis' 
+                ? c.plates.filter(p => p.plate.trim() !== '' && p.reason.trim() !== '').map(p => ({ plate_number: p.plate.trim().toUpperCase(), reason: p.reason.trim() }))
+                : []
+            }]
+          }),
         capacities: capacities
           .filter(c => c.count > 0)
           .map(c => ({
@@ -294,7 +334,7 @@ function NewSchedule() {
       setSuccess('Agendamento salvo com sucesso!')
       
       // Reset form
-      setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '' })))
+      setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '', items: cat === 'Perdidas' ? [{ count: 0, profile: '' }] : [] })))
       // keep uf list intact
       setCapacities(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
       setCapacitiesSpot(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
@@ -420,36 +460,65 @@ function NewSchedule() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {category.name}
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={category.count || ''}
-                  onChange={(e) => handleCategoryChange(index, e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="0"
-                />
-
-                {/* profile selector for Perdidas */}
-                {category.name === 'Perdidas' && category.count > 0 && (
-                  <div className="mt-2">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Perfil do veículo (obrigatório)
-                    </label>
-                    <select
-                      value={category.profile || ''}
-                      onChange={(e) => {
-                        const newCats = [...categories]
-                        newCats[index].profile = e.target.value
-                        setCategories(newCats)
-                      }}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                
+                {category.name === 'Perdidas' ? (
+                  <div>
+                    {category.items.map((item, idx) => (
+                      <div key={idx} className="flex gap-2 mb-2 items-start">
+                        <div className="flex-1">
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.count || ''}
+                            onChange={(e) => handlePerdidasItemChange(index, idx, 'count', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            placeholder="Qtd"
+                          />
+                        </div>
+                        <div className="flex-[2]">
+                          <select
+                            value={item.profile || ''}
+                            onChange={(e) => handlePerdidasItemChange(index, idx, 'profile', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          >
+                            <option value="">Perfil...</option>
+                            {profiles.map((p) => (
+                              <option key={p.name} value={p.name}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {category.items.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePerdidasItem(index, idx)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded mt-0.5"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addPerdidasItem(index)}
+                      className="mt-2 text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
                     >
-                      <option value="">Selecione...</option>
-                      {profiles.map((p) => (
-                        <option key={p.name} value={p.name}>{p.name}</option>
-                      ))}
-                    </select>
+                      <Plus className="w-4 h-4" />
+                      Adicionar linha
+                    </button>
+                    <div className="mt-2 text-xs text-gray-500 text-right">
+                      Total: {category.count}
+                    </div>
                   </div>
+                ) : (
+                  <input
+                    type="number"
+                    min="0"
+                    value={category.count || ''}
+                    onChange={(e) => handleCategoryChange(index, e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="0"
+                  />
                 )}
                 
                 {/* Lost plates input */}
@@ -596,7 +665,7 @@ function NewSchedule() {
           <button
             type="button"
             onClick={() => {
-              setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [] })))
+              setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '', items: cat === 'Perdidas' ? [{ count: 0, profile: '' }] : [] })))
               setCapacities(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
               setCapacitiesSpot(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
               setError(null)
