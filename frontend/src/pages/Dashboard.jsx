@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, ComposedChart, Line } from 'recharts'
 import { Truck, Package, AlertTriangle, TrendingUp, X } from 'lucide-react'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
+
+// Metas diárias simuladas (Veículos) por ID da empresa
+// Ajuste conforme a regra de negócio real
+const DAILY_GOALS = {
+  1: 25, // 3 Corações
+  2: 20, // Itambé
+  3: 15  // DPA
+}
+
 function Dashboard() {
   const [metrics, setMetrics] = useState(null)
+  const [dailyEvolution, setDailyEvolution] = useState([])
   const [loading, setLoading] = useState(true)
   const [companyFilter, setCompanyFilter] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -86,13 +96,50 @@ function Dashboard() {
       if (profileFilter) params.append('profile_name', profileFilter)
       if (ufFilter) params.append('uf', ufFilter)
 
-      const response = await axios.get(`/api/dashboard/metrics?${params.toString()}`)
-      setMetrics(response.data)
+      // Busca métricas e agendamentos em paralelo para montar o gráfico de evolução
+      const [metricsRes, schedulesRes] = await Promise.all([
+        axios.get(`/api/dashboard/metrics?${params.toString()}`),
+        axios.get(`/api/schedules?${params.toString()}`)
+      ])
+
+      setMetrics(metricsRes.data)
+      processDailyEvolution(schedulesRes.data)
     } catch (error) {
       console.error('Erro ao buscar métricas:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const processDailyEvolution = (schedules) => {
+    // Agrupa agendamentos por data
+    const grouped = {}
+    
+    schedules.forEach(s => {
+      const date = s.schedule_date // YYYY-MM-DD
+      if (!grouped[date]) {
+        grouped[date] = { date, realizado: 0, meta: 0 }
+      }
+      grouped[date].realizado += s.total_vehicles
+    })
+
+    // Calcula a meta baseada no filtro de empresa
+    // Se tem filtro, usa a meta da empresa. Se não, soma todas.
+    let currentMeta = 0
+    if (companyFilter) {
+      currentMeta = DAILY_GOALS[companyFilter] || 0
+    } else {
+      currentMeta = Object.values(DAILY_GOALS).reduce((a, b) => a + b, 0)
+    }
+
+    // Transforma em array e ordena
+    const data = Object.values(grouped).map(item => ({
+      ...item,
+      meta: currentMeta,
+      displayDate: item.date.split('-').reverse().slice(0, 2).join('/') // DD/MM
+    })).sort((a, b) => a.date.localeCompare(b.date))
+
+    setDailyEvolution(data)
   }
 
   const openEditModal = (schedule) => {
@@ -436,8 +483,8 @@ function Dashboard() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  outerRadius={80}
+                  label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                  outerRadius={55}
                   fill="#8884d8"
                   dataKey="count"
                   nameKey="category"
@@ -457,18 +504,18 @@ function Dashboard() {
       {/* New Chart Row */}
       <div className="grid grid-cols-1 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Realizado vs. Meta (Veículos)</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Evolução Diária: Realizado vs. Meta (Veículos)</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics?.goal_fulfillment || []}>
+              <ComposedChart data={dailyEvolution}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="company" />
+                <XAxis dataKey="displayDate" />
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="meta" fill="#10b981" name="Meta" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" barSize={40} radius={[4, 4, 0, 0]} />
+                <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
