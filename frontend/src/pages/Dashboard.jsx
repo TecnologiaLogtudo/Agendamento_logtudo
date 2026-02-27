@@ -5,15 +5,6 @@ import { Truck, Package, AlertTriangle, TrendingUp, X } from 'lucide-react'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
-
-// Metas diárias simuladas (Veículos) por ID da empresa
-// Ajuste conforme a regra de negócio real
-const DAILY_GOALS = {
-  1: 25, // 3 Corações
-  2: 20, // Itambé
-  3: 15  // DPA
-}
-
 function Dashboard() {
   const [metrics, setMetrics] = useState(null)
   const [dailyEvolution, setDailyEvolution] = useState([])
@@ -66,7 +57,7 @@ function Dashboard() {
   // refresh metrics when any filter changes
   useEffect(() => {
     fetchMetrics()
-  }, [companyFilter, startDate, endDate, profileFilter, ufFilter])
+  }, [companyFilter, startDate, endDate, profileFilter, ufFilter, companies])
 
   // reload profiles when company filter changes (empty = all)
   useEffect(() => {
@@ -103,7 +94,7 @@ function Dashboard() {
       ])
 
       setMetrics(metricsRes.data)
-      processDailyEvolution(schedulesRes.data)
+      processDailyEvolution(schedulesRes.data, companies)
     } catch (error) {
       console.error('Erro ao buscar métricas:', error)
     } finally {
@@ -111,31 +102,54 @@ function Dashboard() {
     }
   }
 
-  const processDailyEvolution = (schedules) => {
-    // Agrupa agendamentos por data
-    const grouped = {}
-    
-    schedules.forEach(s => {
-      const date = s.schedule_date // YYYY-MM-DD
-      if (!grouped[date]) {
-        grouped[date] = { date, realizado: 0, meta: 0 }
-      }
-      grouped[date].realizado += s.total_vehicles
-    })
-
-    // Calcula a meta baseada no filtro de empresa
-    // Se tem filtro, usa a meta da empresa. Se não, soma todas.
-    let currentMeta = 0
-    if (companyFilter) {
-      currentMeta = DAILY_GOALS[companyFilter] || 0
-    } else {
-      currentMeta = Object.values(DAILY_GOALS).reduce((a, b) => a + b, 0)
+  const processDailyEvolution = (schedules, allCompanies) => {
+    if (!allCompanies || allCompanies.length === 0) {
+      setDailyEvolution([])
+      return
     }
 
-    // Transforma em array e ordena
-    const data = Object.values(grouped).map(item => ({
+    // Agrupa agendamentos por data
+    const groupedByDate = {}
+
+    // Se um filtro de empresa está ativo, mostramos apenas os dados dela.
+    if (companyFilter) {
+      const company = allCompanies.find(c => c.id == companyFilter)
+      const meta = company ? company.vehicle_goal || 0 : 0
+
+      schedules.forEach(s => {
+        const date = s.schedule_date // YYYY-MM-DD
+        if (!groupedByDate[date]) {
+          groupedByDate[date] = { date, realizado: 0, meta: meta }
+        }
+        groupedByDate[date].realizado += s.total_vehicles
+      })
+    } else {
+      // Se "Todas as empresas", agrupamos lado a lado.
+      const companyMap = {}
+      allCompanies.forEach(c => {
+        companyMap[c.id] = { name: c.name, goal: c.vehicle_goal || 0 }
+      })
+
+      schedules.forEach(s => {
+        const date = s.schedule_date
+        if (!groupedByDate[date]) {
+          groupedByDate[date] = { date }
+          // Inicializa os valores para cada empresa nesta data
+          allCompanies.forEach(c => {
+            groupedByDate[date][c.name] = 0
+            groupedByDate[date][`meta_${c.name}`] = c.vehicle_goal || 0
+          })
+        }
+        const companyName = companyMap[s.company_id]?.name
+        if (companyName) {
+          groupedByDate[date][companyName] += s.total_vehicles
+        }
+      })
+    }
+
+    // Transforma em array, adiciona data de exibição e ordena
+    const data = Object.values(groupedByDate).map(item => ({
       ...item,
-      meta: currentMeta,
       displayDate: item.date.split('-').reverse().slice(0, 2).join('/') // DD/MM
     })).sort((a, b) => a.date.localeCompare(b.date))
 
@@ -513,8 +527,30 @@ function Dashboard() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" barSize={40} radius={[4, 4, 0, 0]} />
-                <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} />
+                {companyFilter ? (
+                  <>
+                    <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" barSize={40} radius={[4, 4, 0, 0]} />
+                    <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} />
+                  </>
+                ) : (
+                  <>
+                    {companies.map((company, index) => (
+                      <Bar key={company.id} dataKey={company.name} fill={COLORS[index % COLORS.length]} name={company.name} radius={[4, 4, 0, 0]} />
+                    ))}
+                    {companies.map((company, index) => (
+                        <Line 
+                            key={`meta-${company.id}`} 
+                            type="monotone" 
+                            dataKey={`meta_${company.name}`} 
+                            stroke={COLORS[index % COLORS.length]} 
+                            name={`Meta ${company.name}`} 
+                            strokeWidth={2} 
+                            dot={false} 
+                            strokeDasharray="5 5" 
+                        />
+                    ))}
+                  </>
+                )}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
