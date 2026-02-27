@@ -26,7 +26,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
       DEBUG: "false"
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
-      ADMIN_PASSWORD: "Agenda@26"
+      ADMIN_PASSWORD: "Agenda@26" 
     restart: unless-stopped
     depends_on:
       db:

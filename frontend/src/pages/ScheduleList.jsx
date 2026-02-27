@@ -69,7 +69,11 @@ function ScheduleList() {
       })
       const link = document.createElement('a')
       link.href = window.URL.createObjectURL(blob)
-      link.download = `agendamentos_${new Date().toISOString().split('T')[0]}.xlsx`
+      
+      const date = new Date()
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      link.download = `agendamentos_${dateStr}.xlsx`
+      
       link.click()
     } catch (err) {
       console.error('Erro ao exportar:', err)
@@ -223,7 +227,7 @@ function ScheduleList() {
                 {schedules.map((schedule) => (
                   <tr key={schedule.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                      {new Date(schedule.schedule_date).toLocaleDateString('pt-BR')}
+                      {schedule.schedule_date.split('-').reverse().join('/')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-medium text-gray-800">

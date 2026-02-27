@@ -19,6 +19,7 @@ function Dashboard() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState(null)
+  const [editDate, setEditDate] = useState('')
   const [editCategories, setEditCategories] = useState([])
   const [editCapacities, setEditCapacities] = useState([])
   const [editCapacitiesSpot, setEditCapacitiesSpot] = useState([])
@@ -96,6 +97,7 @@ function Dashboard() {
 
   const openEditModal = (schedule) => {
     setEditingSchedule(schedule)
+    setEditDate(schedule.schedule_date)
     setEditCategories(schedule.categories.map(c => ({ ...c })))
     setEditCapacities(schedule.capacities.map(c => ({ ...c })))
     setEditCapacitiesSpot(schedule.capacities_spot.map(c => ({ ...c })))
@@ -106,6 +108,7 @@ function Dashboard() {
   const closeEditModal = () => {
     setEditModalOpen(false)
     setEditingSchedule(null)
+    setEditDate('')
     setEditCategories([])
     setEditCapacities([])
     setEditCapacitiesSpot([])
@@ -168,7 +171,7 @@ function Dashboard() {
       const payload = {
         company_id: editingSchedule.company_id,
         uf: editingSchedule.uf,
-        schedule_date: editingSchedule.schedule_date,
+        schedule_date: editDate,
         categories: editCategories.map(c => ({ category_name: c.category_name, count: c.count, profile_name: c.profile_name || '', lost_plates: c.lost_plates || [] })),
         capacities: editCapacities.map(c => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
         capacities_spot: editCapacitiesSpot.map(c => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
@@ -284,7 +287,16 @@ function Dashboard() {
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-lg w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
                 <button onClick={closeEditModal} className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"><X /></button>
-                <h3 className="text-lg font-semibold mb-4">Editar Agendamento - {editingSchedule.schedule_date.split('-').reverse().join('/')}</h3>
+                <h3 className="text-lg font-semibold mb-4">Editar Agendamento</h3>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
                 {editError && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
                     {editError}
