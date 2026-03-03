@@ -12,8 +12,42 @@ function ScheduleList() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   
+  // Edit state
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [profiles, setProfiles] = useState([])
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState(null)
+  const [editDate, setEditDate] = useState('')
+  const [editCategories, setEditCategories] = useState([])
+  const [editCapacities, setEditCapacities] = useState([])
+  const [editCapacitiesSpot, setEditCapacitiesSpot] = useState([])
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState(null)
+
   useEffect(() => {
     fetchSchedules()
+    
+    // Check admin role
+    try {
+      const token = localStorage.getItem('admin_token')
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+        setIsAdmin(payload.role === 'admin')
+      }
+    } catch (_e) {
+      setIsAdmin(false)
+    }
+
+    // Load profiles for edit modal
+    const loadProfiles = async () => {
+      try {
+        const res = await axios.get('/api/profiles')
+        setProfiles(res.data)
+      } catch (err) {
+        console.error('Erro ao carregar perfis:', err)
+      }
+    }
+    loadProfiles()
   }, [])
   
   const fetchSchedules = async () => {
@@ -91,6 +125,100 @@ function ScheduleList() {
   
   const formatKg = (kg) => kg.toLocaleString('pt-BR')
   
+  const openEditModal = (schedule) => {
+    setEditingSchedule(schedule)
+    setEditDate(schedule.schedule_date)
+    setEditCategories(schedule.categories.map(c => ({ ...c })))
+    setEditCapacities(schedule.capacities.map(c => ({ ...c })))
+    setEditCapacitiesSpot(schedule.capacities_spot.map(c => ({ ...c })))
+    setEditError(null)
+    setEditModalOpen(true)
+  }
+
+  const closeEditModal = () => {
+    setEditModalOpen(false)
+    setEditingSchedule(null)
+    setEditDate('')
+    setEditCategories([])
+    setEditCapacities([])
+    setEditCapacitiesSpot([])
+    setEditError(null)
+  }
+
+  const handleEditCategoryChange = (index, field, value) => {
+    const copy = [...editCategories]
+    copy[index] = { ...copy[index], [field]: field === 'count' ? parseInt(value) || 0 : value }
+    setEditCategories(copy)
+  }
+
+  const handleEditCapacityChange = (index, value, spot=false) => {
+    if (spot) {
+      const copy = [...editCapacitiesSpot]
+      copy[index] = { ...copy[index], vehicle_count: parseInt(value) || 0 }
+      setEditCapacitiesSpot(copy)
+    } else {
+      const copy = [...editCapacities]
+      copy[index] = { ...copy[index], vehicle_count: parseInt(value) || 0 }
+      setEditCapacities(copy)
+    }
+  }
+
+  const submitEdit = async () => {
+    if (!editingSchedule) return
+
+    // Client-side validation
+    for (const c of editCategories) {
+      if (c.category_name === 'Perdidas' && c.count > 0) {
+        if (!c.profile_name || c.profile_name.trim() === '') {
+          setEditError('Informe o perfil do veículo para categorias Perdidas')
+          return
+        }
+      }
+      if (c.category_name === 'Indisponíveis' && c.count > 0) {
+        const plates = c.lost_plates || []
+        const filled = plates.filter(p => p && p.plate_number && p.plate_number.trim() !== '' && p.reason && p.reason.trim() !== '')
+        if (filled.length !== c.count) {
+          setEditError(`Informe ${c.count} placa(s) e motivo(s) para as viagens Indisponíveis`)
+          return
+        }
+      }
+    }
+
+    const spotCat = editCategories.find(c => c.category_name === 'Spot/Parado')
+    if (spotCat) {
+      const totalSpot = editCapacitiesSpot.reduce((s, cap) => s + (cap.vehicle_count || 0), 0)
+        if (spotCat.count !== totalSpot) {
+          setEditError(`A soma dos veículos em SPOT (${totalSpot}) deve ser igual à quantidade em Spot/Parado (${spotCat.count})`)
+          return
+        }
+    }
+
+    setSavingEdit(true)
+    try {
+      const token = localStorage.getItem('admin_token')
+      const payload = {
+        company_id: editingSchedule.company_id,
+        uf: editingSchedule.uf,
+        schedule_date: editDate,
+        categories: editCategories.map(c => ({ category_name: c.category_name, count: c.count, profile_name: c.profile_name || '', lost_plates: c.lost_plates || [] })),
+        capacities: editCapacities.map(c => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
+        capacities_spot: editCapacitiesSpot.map(c => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
+      }
+
+      await axios.put(`/api/schedules/${editingSchedule.id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      closeEditModal()
+      fetchSchedules()
+    } catch (err) {
+      console.error('Erro ao atualizar agendamento:', err)
+      setEditError(err.response?.data?.detail || 'Erro ao atualizar')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
@@ -221,6 +349,9 @@ function ScheduleList() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Perfis
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -287,6 +418,16 @@ function ScheduleList() {
                         ))}
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {isAdmin && (
+                        <button
+                          onClick={() => openEditModal(schedule)}
+                          className="px-3 py-1 bg-primary-600 text-white rounded text-sm"
+                        >
+                          Editar
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -313,6 +454,76 @@ function ScheduleList() {
             <p className="text-xl font-bold text-gray-800">
               {formatKg(schedules.reduce((sum, s) => sum + s.total_capacity_kg, 0))} kg
             </p>
+          </div>
+        </div>
+      )}
+
+      {editModalOpen && editingSchedule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onClick={closeEditModal} className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"><X /></button>
+            <h3 className="text-lg font-semibold mb-4">Editar Agendamento</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+              <input
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              />
+            </div>
+            {editError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
+                {editError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium">Categorias</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                  {editCategories.map((cat, idx) => (
+                    <div key={idx} className="border p-3 rounded">
+                      <div className="text-sm font-medium">{cat.category_name}</div>
+                      <input type="number" min="0" value={cat.count || 0} onChange={(e) => handleEditCategoryChange(idx, 'count', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded" />
+                      <select value={cat.profile_name || ''} onChange={(e) => handleEditCategoryChange(idx, 'profile_name', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded">
+                        <option value="">{cat.category_name === 'Perdidas' ? 'Selecione...' : 'Perfil (Opcional)...'}</option>
+                        {profiles.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium">Capacidades</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+                  {editCapacities.map((cap, idx) => (
+                    <div key={idx} className="border p-3 rounded">
+                      <div className="text-sm font-medium">{cap.profile_name}</div>
+                      <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value, false)} className="mt-2 w-full px-2 py-1 border rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium">Capacidades - SPOT</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+                  {editCapacitiesSpot.map((cap, idx) => (
+                    <div key={idx} className="border p-3 rounded">
+                      <div className="text-sm font-medium">{cap.profile_name}</div>
+                      <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value, true)} className="mt-2 w-full px-2 py-1 border rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={closeEditModal} className="px-4 py-2 border rounded">Cancelar</button>
+              <button onClick={submitEdit} disabled={savingEdit} className="px-4 py-2 bg-primary-600 text-white rounded">{savingEdit ? 'Salvando...' : 'Salvar'}</button>
+            </div>
           </div>
         </div>
       )}

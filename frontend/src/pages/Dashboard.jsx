@@ -372,12 +372,10 @@ function Dashboard() {
                         <div key={idx} className="border p-3 rounded">
                           <div className="text-sm font-medium">{cat.category_name}</div>
                           <input type="number" min="0" value={cat.count || 0} onChange={(e) => handleEditCategoryChange(idx, 'count', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded" />
-                          {cat.category_name === 'Perdidas' && (
-                            <select value={cat.profile_name || ''} onChange={(e) => handleEditCategoryChange(idx, 'profile_name', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded">
-                              <option value="">Selecione...</option>
-                              {profiles.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
-                            </select>
-                          )}
+                          <select value={cat.profile_name || ''} onChange={(e) => handleEditCategoryChange(idx, 'profile_name', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded">
+                            <option value="">{cat.category_name === 'Perdidas' ? 'Selecione...' : 'Perfil (Opcional)...'}</option>
+                            {profiles.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                          </select>
                         </div>
                       ))}
                     </div>
