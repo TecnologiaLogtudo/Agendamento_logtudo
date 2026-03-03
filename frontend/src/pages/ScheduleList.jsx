@@ -23,6 +23,7 @@ function ScheduleList() {
   const [editCapacitiesSpot, setEditCapacitiesSpot] = useState([])
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState(null)
+  const [allCategories, setAllCategories] = useState([])
 
   useEffect(() => {
     fetchSchedules()
@@ -41,8 +42,12 @@ function ScheduleList() {
     // Load profiles for edit modal
     const loadProfiles = async () => {
       try {
-        const res = await axios.get('/api/profiles')
-        setProfiles(res.data)
+        const [profRes, catRes] = await Promise.all([
+          axios.get('/api/profiles'),
+          axios.get('/api/admin/categories')
+        ])
+        setProfiles(profRes.data)
+        setAllCategories(catRes.data)
       } catch (err) {
         console.error('Erro ao carregar perfis:', err)
       }
@@ -83,35 +88,37 @@ function ScheduleList() {
     fetchSchedules()
   }
   
-  const handleExport = async () => {
-    try {
-      let url = '/api/schedules/export'
-      const params = []
-      
-      if (companyFilter) params.push(`company_id=${companyFilter}`)
-      if (startDate) params.push(`start_date=${startDate}`)
-      if (endDate) params.push(`end_date=${endDate}`)
-      
-      if (params.length > 0) url += '?' + params.join('&')
-      
-      const response = await axios.get(url, {
-        responseType: 'blob',
+  const handleExport = () => {
+    // Exportação CSV Client-side
+    const headers = ['Data', 'Empresa', 'Veículos', 'Capacidade (kg)', 'Categorias', 'Perfis']
+    const csvContent = [
+      headers.join(';'),
+      ...schedules.map(schedule => {
+        const date = schedule.schedule_date.split('-').reverse().join('/')
+        const company = getCompanyName(schedule.company_id)
+        const categories = schedule.categories.map(c => 
+          `${c.category_name}: ${c.count}${c.profile_name ? ` [${c.profile_name}]` : ''}`
+        ).join(' | ')
+        const profiles = schedule.capacities.map(c => 
+          `${c.profile_name}: ${c.vehicle_count}`
+        ).join(' | ')
+        
+        return [
+          date,
+          company,
+          schedule.total_vehicles,
+          schedule.total_capacity_kg,
+          `"${categories}"`,
+          `"${profiles}"`
+        ].join(';')
       })
-      
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-      const link = document.createElement('a')
-      link.href = window.URL.createObjectURL(blob)
-      
-      const date = new Date()
-      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-      link.download = `agendamentos_${dateStr}.xlsx`
-      
-      link.click()
-    } catch (err) {
-      console.error('Erro ao exportar:', err)
-    }
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = window.URL.createObjectURL(blob)
+    link.download = `agendamentos_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
   }
   
   const getCompanyName = (id) => {
@@ -128,9 +135,39 @@ function ScheduleList() {
   const openEditModal = (schedule) => {
     setEditingSchedule(schedule)
     setEditDate(schedule.schedule_date)
-    setEditCategories(schedule.categories.map(c => ({ ...c })))
-    setEditCapacities(schedule.capacities.map(c => ({ ...c })))
-    setEditCapacitiesSpot(schedule.capacities_spot.map(c => ({ ...c })))
+    
+    // Merge categories with all available categories
+    const existingCats = schedule.categories || []
+    const mergedCategories = allCategories.map(cat => {
+      const existing = existingCats.find(c => c.category_name === cat.name)
+      if (existing) return { ...existing }
+      return { category_name: cat.name, count: 0, profile_name: '', lost_plates: [] }
+    })
+    // Add any existing categories that might not be in allCategories
+    existingCats.forEach(c => {
+      if (!mergedCategories.find(mc => mc.category_name === c.category_name)) {
+        mergedCategories.push({ ...c })
+      }
+    })
+    setEditCategories(mergedCategories)
+
+    // Merge capacities with all profiles
+    const existingCaps = schedule.capacities || []
+    const mergedCaps = profiles.map(p => {
+      const existing = existingCaps.find(c => c.profile_name === p.name)
+      if (existing) return { ...existing }
+      return { profile_name: p.name, vehicle_count: 0 }
+    })
+    setEditCapacities(mergedCaps)
+
+    const existingCapsSpot = schedule.capacities_spot || []
+    const mergedCapsSpot = profiles.map(p => {
+      const existing = existingCapsSpot.find(c => c.profile_name === p.name)
+      if (existing) return { ...existing }
+      return { profile_name: p.name, vehicle_count: 0 }
+    })
+    setEditCapacitiesSpot(mergedCapsSpot)
+    
     setEditError(null)
     setEditModalOpen(true)
   }
@@ -402,6 +439,17 @@ function ScheduleList() {
                                 </div>
                               </div>
                             )}
+
+                            {/* Tooltip para Perdidas */}
+                            {cat.category_name === 'Perdidas' && (
+                              <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-40 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal">
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-white"></div>
+                                <div className="text-left text-xs">
+                                  <p><span className="font-bold">Perfil:</span> {cat.profile_name || 'N/A'}</p>
+                                  <p><span className="font-bold">Qtd:</span> {cat.count}</p>
+                                </div>
+                              </div>
+                            )}
                           </span>
                         ))}
                       </div>
@@ -486,10 +534,12 @@ function ScheduleList() {
                     <div key={idx} className="border p-3 rounded">
                       <div className="text-sm font-medium">{cat.category_name}</div>
                       <input type="number" min="0" value={cat.count || 0} onChange={(e) => handleEditCategoryChange(idx, 'count', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded" />
-                      <select value={cat.profile_name || ''} onChange={(e) => handleEditCategoryChange(idx, 'profile_name', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded">
-                        <option value="">{cat.category_name === 'Perdidas' ? 'Selecione...' : 'Perfil (Opcional)...'}</option>
-                        {profiles.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
-                      </select>
+                      {cat.category_name === 'Perdidas' && (
+                        <select value={cat.profile_name || ''} onChange={(e) => handleEditCategoryChange(idx, 'profile_name', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded">
+                          <option value="">Selecione...</option>
+                          {profiles.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                        </select>
+                      )}
                     </div>
                   ))}
                 </div>
