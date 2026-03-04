@@ -18,9 +18,10 @@ WORKDIR /app
 
 # Instala dependências de sistema necessárias para compilar pacotes Python (se necessário)
 RUN apt-get update && apt-get install -y \
-    build-essential \ 
+    build-essential \
     postgresql-client \
     libpq-dev \
+    python3-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
