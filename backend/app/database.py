@@ -41,3 +41,9 @@ async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit
 
 class Base(DeclarativeBase):
     pass
+
+
+async def get_session() -> AsyncSession:
+    """Dependency para fornecer sessão do banco de dados."""
+    async with async_session() as session:
+        yield session

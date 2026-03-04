@@ -9,6 +9,7 @@ class LostPlateCreate(BaseModel):
 
 
 class LoginRequest(BaseModel):
+    username: str
     password: str
 
 

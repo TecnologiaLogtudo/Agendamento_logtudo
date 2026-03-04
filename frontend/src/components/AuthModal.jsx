@@ -3,6 +3,7 @@ import axios from 'axios';
 
 const AuthModal = ({ onAuthenticated }) => {
   const [isOpen, setIsOpen] = useState(true);
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,6 +24,7 @@ const AuthModal = ({ onAuthenticated }) => {
 
     try {
       const response = await axios.post(`/api/auth/login`, {
+        username: username,
         password: password
       });
 
@@ -32,7 +34,7 @@ const AuthModal = ({ onAuthenticated }) => {
       if (onAuthenticated) onAuthenticated(token);
       
     } catch (_err) {
-      setError('Senha incorreta. Tente novamente.');
+      setError('Usuário ou senha incorretos. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -50,18 +52,32 @@ const AuthModal = ({ onAuthenticated }) => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">Acesso Restrito</h2>
-          <p className="text-gray-600 mt-2">Digite a senha mestra para criar agendamentos.</p>
+          <p className="text-gray-600 mt-2">Digite seu usuário e senha para acessar o sistema.</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Seu usuário"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              autoFocus
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Senha de acesso"
+              placeholder="Sua senha"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              autoFocus
+              required
             />
           </div>
           
@@ -69,8 +85,8 @@ const AuthModal = ({ onAuthenticated }) => {
 
           <button
             type="submit"
-            disabled={loading}
-            className={`w-full py-3 rounded-lg text-white font-semibold transition-colors ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+            disabled={loading || !username || !password}
+            className={`w-full py-3 rounded-lg text-white font-semibold transition-colors ${loading || !username || !password ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
           >
             {loading ? 'Verificando...' : 'Acessar Sistema'}
           </button>

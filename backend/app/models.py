@@ -127,3 +127,13 @@ class ScheduleCapacitySpot(Base):
 
     schedule: Mapped["Schedule"] = relationship(back_populates="capacities_spot")
 
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(unique=True, index=True)
+    password: Mapped[str]
+    role: Mapped[str] = mapped_column(default="collab")
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
