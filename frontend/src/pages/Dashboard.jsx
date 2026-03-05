@@ -569,7 +569,7 @@ function Dashboard() {
                 {companyFilter ? (
                   <>
                     <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" barSize={20} radius={[4, 4, 0, 0]} />
-                    <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} hide />
+                    <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} legendType="none" />
                   </>
                 ) : (
                   <>
@@ -586,7 +586,7 @@ function Dashboard() {
                             strokeWidth={2} 
                             dot={false} 
                             strokeDasharray="5 5"
-                            hide
+                            legendType="none"
                         />
                     ))}
                   </>
