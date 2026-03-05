@@ -12,6 +12,14 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/manual-de-uso")
+async def serve_manual():
+    manual_path = "static/MANUAL_USUARIO.pdf"
+    if os.path.exists(manual_path):
+        return FileResponse(manual_path, media_type="application/pdf")
+    return {"message": "Manual not found."}
+
+
 @app.get("/")
 async def serve_root():
     if os.path.exists("static/index.html"):
