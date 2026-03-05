@@ -32,16 +32,22 @@ function Dashboard() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [companiesRes, ufsRes, catsRes] = await Promise.all([
+        const [companiesRes, ufsRes] = await Promise.all([
           axios.get('/api/companies'),
           axios.get('/api/companies/ufs'),
-          axios.get('/api/admin/categories')
         ])
         setCompanies(companiesRes.data)
         setUfs(ufsRes.data)
-        setAllCategories(catsRes.data)
       } catch (error) {
         console.error('Erro ao buscar dados iniciais:', error)
+      }
+
+      // Separately fetch admin data, can fail silently
+      try {
+        const catsRes = await axios.get('/api/admin/categories')
+        setAllCategories(catsRes.data)
+      } catch (e) {
+        // this is expected for non-admins
       }
     }
     fetchInitialData()
@@ -562,13 +568,13 @@ function Dashboard() {
                 <Legend />
                 {companyFilter ? (
                   <>
-                    <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" barSize={40} radius={[4, 4, 0, 0]} />
-                    <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} />
+                    <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" barSize={20} radius={[4, 4, 0, 0]} />
+                    <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} hide />
                   </>
                 ) : (
                   <>
                     {companies.map((company, index) => (
-                      <Bar key={company.id} dataKey={company.name} fill={COLORS[index % COLORS.length]} name={company.name} radius={[4, 4, 0, 0]} />
+                      <Bar key={company.id} dataKey={company.name} fill={COLORS[index % COLORS.length]} name={company.name} radius={[4, 4, 0, 0]} barSize={20} />
                     ))}
                     {companies.map((company, index) => (
                         <Line 
@@ -579,7 +585,8 @@ function Dashboard() {
                             name={`Meta ${company.name}`} 
                             strokeWidth={2} 
                             dot={false} 
-                            strokeDasharray="5 5" 
+                            strokeDasharray="5 5"
+                            hide
                         />
                     ))}
                   </>
@@ -601,6 +608,7 @@ function Dashboard() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UF</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veículos</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacidade</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categorias</th>
@@ -618,6 +626,9 @@ function Dashboard() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                     {companies.find(c => c.id === schedule.company_id)?.name || `Empresa ${schedule.company_id}`}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                    {schedule.uf}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {schedule.total_vehicles}

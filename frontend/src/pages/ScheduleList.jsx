@@ -375,6 +375,9 @@ function ScheduleList() {
                     Empresa
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    UF
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Veículos
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -401,6 +404,9 @@ function ScheduleList() {
                       <span className="text-sm font-medium text-gray-800">
                         {getCompanyName(schedule.company_id)}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                      {schedule.uf}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {schedule.total_vehicles}
