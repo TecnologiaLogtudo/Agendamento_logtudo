@@ -3,15 +3,18 @@ version: '3.8'
 services:
   db:
     image: postgres:16-alpine
-    container_name: logisched_db
+    container_name: logisched_db_dev
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-sua_senha_forte_aqui}
-      POSTGRES_DB: agendamento_db
+      POSTGRES_USER: ${DB_DEV_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_DEV_PASSWORD:-sua_senha_dev_aqui}
+      POSTGRES_DB: ${DB_DEV_NAME:-agendamento_db_dev}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_dev:/var/lib/postgresql/data
+    # Acesso externo ao banco em dev (do seu PC para o VPS)
+    ports:
+      - "5434:5432"    # host:container (use outra porta se 5434 já estiver em uso)
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_DEV_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,13 +23,13 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: logisched_backend
+    container_name: logisched_backend_dev
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@db:5432/agendamento_db
-      SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
-      DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://${DB_DEV_USER:-postgres}:${DB_DEV_PASSWORD:-sua_senha_dev_aqui}@db:5432/${DB_DEV_NAME:-agendamento_db_dev}
+      SECRET_KEY: ${DEV_SECRET_KEY:-sua_secret_key_dev_aqui}
+      DEBUG: "true"
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
-      ADMIN_PASSWORD: "Agenda@26" 
+      ADMIN_PASSWORD: "dev26"  # opcional trocar para uma senha dev
     restart: unless-stopped
     depends_on:
       db:
@@ -35,11 +38,12 @@ services:
       - "8000"
     labels:
       - traefik.enable=true
-      - traefik.http.routers.logisched_backend.rule=Host(`agenda.logtudo.com.br`)
-      - traefik.http.routers.logisched_backend.entrypoints=http,https
-      - traefik.http.services.logisched_backend.loadbalancer.server.port=8000
+      # host separado para dev
+      - traefik.http.routers.logisched_backend_dev.rule=Host(`hugwcg8c4ssgsg0cko0s484ko.72.61.25.133.sslip.io`)
+      - traefik.http.routers.logisched_backend_dev.entrypoints=http,https
+      - traefik.http.services.logisched_backend_dev.loadbalancer.server.port=8000
       - coolify.managed=true
       - coolify.proxy=true
 
 volumes:
-  postgres_data:
+  postgres_data_dev:
