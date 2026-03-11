@@ -128,17 +128,24 @@ function NewSchedule() {
   
   const handleCategoryChange = (index, value) => {
     const newCategories = [...categories]
-    newCategories[index].count = parseInt(value) || 0
-    
-    // Reset plates or profile if count is 0
-    if (newCategories[index].count === 0) {
+    const parsedCount = parseInt(value) || 0
+    newCategories[index].count = parsedCount
+
+    if (newCategories[index].name === 'Indisponíveis') {
+      if (parsedCount === 0) {
+        newCategories[index].plates = []
+      } else {
+        const plates = newCategories[index].plates || []
+        const resized = plates.slice(0, parsedCount)
+        while (resized.length < parsedCount) {
+          resized.push({ plate: '', reason: '' })
+        }
+        newCategories[index].plates = resized
+      }
+    } else if (parsedCount === 0) {
       newCategories[index].plates = []
     }
-    // Initialize plates array if category is "Indisponíveis" and count > 0
-    else if (newCategories[index].name === 'Indisponíveis' && newCategories[index].plates.length === 0) {
-      newCategories[index].plates = [{ plate: '', reason: '' }]
-    }
-    
+
     setCategories(newCategories)
   }
 
@@ -185,15 +192,21 @@ function NewSchedule() {
   
   const addPlate = (catIndex) => {
     const newCategories = [...categories]
-    newCategories[catIndex].count += 1
-    newCategories[catIndex].plates.push({ plate: '', reason: '' })
+    const category = newCategories[catIndex]
+    const plates = [...(category.plates || [])]
+    plates.push({ plate: '', reason: '' })
+    category.plates = plates
+    category.count = plates.length
     setCategories(newCategories)
   }
-  
+
   const removePlate = (catIndex, plateIndex) => {
     const newCategories = [...categories]
-    newCategories[catIndex].count -= 1
-    newCategories[catIndex].plates.splice(plateIndex, 1)
+    const category = newCategories[catIndex]
+    const plates = [...(category.plates || [])]
+    plates.splice(plateIndex, 1)
+    category.plates = plates
+    category.count = Math.max(plates.length, 0)
     setCategories(newCategories)
   }
   
