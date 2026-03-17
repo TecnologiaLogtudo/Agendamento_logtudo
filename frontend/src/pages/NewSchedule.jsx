@@ -53,8 +53,13 @@ function NewSchedule() {
   useEffect(() => {
     fetchCompanies()
     fetchUfs()
-    fetchCategories()
   }, [])
+
+  useEffect(() => {
+    if (authToken) {
+      fetchCategories()
+    }
+  }, [authToken])
 
   // whenever the selected company changes we need to reload profiles
   // (and reset the capacity tables accordingly)
@@ -117,7 +122,9 @@ function NewSchedule() {
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get('/api/admin/categories')
+      const res = await axios.get('/api/admin/categories', {
+        headers: { Authorization: `Bearer ${authToken}` }
+      })
       const names = res.data.map(c => c.name)
       setCategoryOptions(names)
       setCategories(names.map(n => ({ name: n, count: 0, plates: [], profile: '', items: n === 'Perdidas' ? [{ count: 0, profile: '' }] : [] })))

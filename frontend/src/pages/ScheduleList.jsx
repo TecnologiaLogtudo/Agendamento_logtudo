@@ -29,30 +29,34 @@ function ScheduleList() {
     fetchSchedules()
     
     // Check admin role
+    let token = null
+    let adminStatus = false
     try {
-      const token = localStorage.getItem('admin_token')
+      token = localStorage.getItem('admin_token')
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-        setIsAdmin(payload.role === 'admin')
+        adminStatus = payload.role === 'admin'
+        setIsAdmin(adminStatus)
       }
     } catch (_e) {
       setIsAdmin(false)
     }
 
-    // Load profiles for edit modal
-    const loadProfiles = async () => {
+    // Load profiles and categories for edit modal only if admin
+    const loadAdminData = async () => {
+      if (!adminStatus) return;
       try {
         const [profRes, catRes] = await Promise.all([
           axios.get('/api/profiles'),
-          axios.get('/api/admin/categories')
+          axios.get('/api/admin/categories', { headers: { Authorization: `Bearer ${token}` } })
         ])
         setProfiles(profRes.data)
         setAllCategories(catRes.data)
       } catch (err) {
-        console.error('Erro ao carregar perfis:', err)
+        console.error('Erro ao carregar dados do admin:', err)
       }
     }
-    loadProfiles()
+    loadAdminData()
   }, [])
   
   const fetchSchedules = async () => {

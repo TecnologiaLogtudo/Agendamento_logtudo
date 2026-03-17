@@ -41,26 +41,30 @@ function Dashboard() {
       } catch (error) {
         console.error('Erro ao buscar dados iniciais:', error)
       }
-
-      // Separately fetch admin data, can fail silently
-      try {
-        const catsRes = await axios.get('/api/admin/categories')
-        setAllCategories(catsRes.data)
-      } catch (e) {
-        // this is expected for non-admins
-      }
     }
     fetchInitialData()
-    // detect role from token
-    try {
-      const token = localStorage.getItem('admin_token')
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-        setIsAdmin(payload.role === 'admin')
+
+    // detect role from token and fetch admin data if applicable
+    const fetchAdminData = async () => {
+      try {
+        const token = localStorage.getItem('admin_token')
+        if (token) {
+          const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+          const adminStatus = payload.role === 'admin'
+          setIsAdmin(adminStatus)
+          
+          if (adminStatus) {
+            const catsRes = await axios.get('/api/admin/categories', {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+            setAllCategories(catsRes.data)
+          }
+        }
+      } catch (e) {
+        setIsAdmin(false)
       }
-    } catch (_e) {
-      setIsAdmin(false)
     }
+    fetchAdminData()
   }, [])
 
   // refresh metrics when any filter changes
