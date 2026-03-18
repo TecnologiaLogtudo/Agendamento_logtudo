@@ -675,41 +675,37 @@ function ScheduleList() {
                             <div key={itemIdx} className="flex flex-col gap-2 mb-4 border-b border-gray-100 pb-4 last:border-0 last:pb-0">
                               <div className="flex gap-2 items-start">
                                 <div className="w-20">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={item.count || ''}
-                                  onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'count', e.target.value)}
-                                  className="w-full px-2 py-1 border rounded text-sm"
-                                  placeholder="Qtd"
-                                />
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={item.count || ''}
+                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'count', e.target.value)}
+                                    className="w-full px-2 py-1 border rounded text-sm"
+                                    placeholder="Qtd"
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <select
+                                    value={item.profile_name || ''}
+                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'profile', e.target.value)}
+                                    className="w-full px-2 py-1 border rounded text-sm"
+                                  >
+                                    <option value="">Perfil...</option>
+                                    {profiles.map(p => (
+                                      <option key={p.name} value={p.name}>{p.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                {cat.items.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removePerdidasItem(idx, itemIdx)}
+                                    className="text-red-500 hover:text-red-700 p-1"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
-                              <div className="flex-1">
-                                <select
-                                  value={item.profile_name || ''}
-                                  onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'profile', e.target.value)}
-                                  className="w-full px-2 py-1 border rounded text-sm"
-                                >
-                                  <option value="">Perfil...</option>
-                                  {profiles.map(p => (
-                                    <option key={p.name} value={p.name}>{p.name}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              {cat.items.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => removePerdidasItem(idx, itemIdx)}
-                                  className="text-red-500 hover:text-red-700 p-1"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                          <div className="text-xs text-gray-500 text-right">
-                            Total: {cat.count}
-                          </div>
                               <div className="flex gap-2 items-start">
                                 <div className="flex-1">
                                   <input
@@ -730,6 +726,11 @@ function ScheduleList() {
                                   />
                                 </div>
                               </div>
+                            </div>
+                          ))}
+                          <div className="text-xs text-gray-500 text-right">
+                            Total: {cat.count}
+                          </div>
                         </div>
                       ) : (
                         <>
