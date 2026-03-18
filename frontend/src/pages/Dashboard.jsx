@@ -24,7 +24,6 @@ function Dashboard() {
   const [editDate, setEditDate] = useState('')
   const [editCategories, setEditCategories] = useState([])
   const [editCapacities, setEditCapacities] = useState([])
-  const [editCapacitiesSpot, setEditCapacitiesSpot] = useState([])
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState(null)
   const [allCategories, setAllCategories] = useState(getFallbackCategories())
@@ -34,15 +33,19 @@ function Dashboard() {
     const existingItems = (category.items || []).map((item) => ({
       count: item.count || 0,
       profile_name: item.profile_name || '',
+      plate: item.plate || '',
+      reason: item.reason || '',
     }))
     if (existingItems.length === 0) {
       if (category.count > 0) {
         existingItems.push({
           count: category.count,
           profile_name: category.profile_name || '',
+          plate: category.lost_plates?.[0]?.plate_number || '',
+          reason: category.lost_plates?.[0]?.reason || '',
         })
       } else {
-        existingItems.push({ count: 0, profile_name: '' })
+        existingItems.push({ count: 0, profile_name: '', plate: '', reason: '' })
       }
     }
     const total = existingItems.reduce((sum, item) => sum + (item.count || 0), 0)
@@ -50,6 +53,7 @@ function Dashboard() {
       ...category,
       items: existingItems,
       count: total,
+      lost_plates: [],
       profile_name: '',
     }
   }
@@ -59,7 +63,7 @@ function Dashboard() {
       const next = [...prev]
       const target = { ...next[catIndex] }
       const items = [...(target.items || [])]
-      items.push({ count: 0, profile_name: '' })
+      items.push({ count: 0, profile_name: '', plate: '', reason: '' })
       target.items = items
       next[catIndex] = target
       return next
@@ -68,17 +72,19 @@ function Dashboard() {
 
   const buildEditCategories = (existingCats) => {
     const categoryMap = new Map()
-    allCategories.forEach((cat) => {
+    allCategories.filter(c => c.name !== 'Indisponíveis').forEach((cat) => {
       categoryMap.set(cat.name, {
         category_name: cat.name,
         count: 0,
         profile_name: '',
         lost_plates: [],
-        items: cat.name === 'Perdidas' ? [{ count: 0, profile_name: '' }] : [],
+        items: cat.name === 'Perdidas' ? [{ count: 0, profile_name: '', plate: '', reason: '' }] : [],
       })
     })
 
     existingCats.forEach((cat) => {
+      if (cat.category_name === 'Indisponíveis') return
+
       if (cat.category_name === 'Perdidas') {
         const base = categoryMap.get('Perdidas') ?? {
           category_name: 'Perdidas',
@@ -91,6 +97,8 @@ function Dashboard() {
         base.items.push({
           count: cat.count,
           profile_name: cat.profile_name || '',
+          plate: cat.lost_plates?.[0]?.plate_number || '',
+          reason: cat.lost_plates?.[0]?.reason || ''
         })
         base.count = base.items.reduce((sum, item) => sum + (item.count || 0), 0)
         categoryMap.set('Perdidas', base)
@@ -137,7 +145,9 @@ function Dashboard() {
       if (field === 'count') {
         item.count = parseInt(value) || 0
       } else {
-        item.profile_name = value
+        if (field === 'profile') item.profile_name = value
+        if (field === 'plate') item.plate = value
+        if (field === 'reason') item.reason = value
       }
       items[itemIndex] = item
       target.items = items
@@ -301,14 +311,6 @@ function Dashboard() {
       return { profile_name: p.name, vehicle_count: 0 }
     })
     setEditCapacities(mergedCaps)
-
-    const existingCapsSpot = schedule.capacities_spot || []
-    const mergedCapsSpot = profiles.map(p => {
-      const existing = existingCapsSpot.find(c => c.profile_name === p.name)
-      if (existing) return { ...existing }
-      return { profile_name: p.name, vehicle_count: 0 }
-    })
-    setEditCapacitiesSpot(mergedCapsSpot)
     
     setEditError(null)
     setEditModalOpen(true)
@@ -320,7 +322,6 @@ function Dashboard() {
     setEditDate('')
     setEditCategories([])
     setEditCapacities([])
-    setEditCapacitiesSpot([])
     setEditError(null)
   }
 
@@ -343,23 +344,15 @@ function Dashboard() {
     // Ensure 'Perdidas' status have a profile when count > 0
     for (const c of editCategories) {
       if (c.category_name === 'Perdidas') {
-        const invalidItem = (c.items || []).find(item => item.count > 0 && (!item.profile_name || item.profile_name.trim() === ''))
+        const invalidItem = (c.items || []).find(item => item.count > 0 && (!item.profile_name || item.profile_name.trim() === '' || !item.plate || item.plate.trim() === '' || !item.reason || item.reason.trim() === ''))
         if (invalidItem) {
-          setEditError('Informe o perfil do veículo para o status Perdidas')
+          setEditError('Informe o perfil do veículo, placa e motivo para todas as viagens perdidas')
           return
         }
         const profileNames = profiles.map(p => p.name)
         const invalidProfile = (c.items || []).find(item => item.count > 0 && !profileNames.includes(item.profile_name))
         if (invalidProfile) {
           setEditError(`Perfil selecionado "${invalidProfile.profile_name}" é inválido`)
-          return
-        }
-      }
-      if (c.category_name === 'Indisponíveis' && c.count > 0) {
-        const plates = c.lost_plates || []
-        const filled = plates.filter(p => p && p.plate_number && p.plate_number.trim() !== '' && p.reason && p.reason.trim() !== '')
-        if (filled.length !== c.count) {
-          setEditError(`Informe ${c.count} placa(s) e motivo(s) para as viagens Indisponíveis`)
           return
         }
       }
@@ -376,7 +369,7 @@ function Dashboard() {
               category_name: c.category_name,
               count: item.count,
               profile_name: item.profile_name || '',
-              lost_plates: c.lost_plates || [],
+              lost_plates: item.plate && item.reason ? [{ plate_number: item.plate.trim().toUpperCase(), reason: item.reason.trim() }] : [],
             }))
         }
         if (c.count > 0) {
@@ -395,7 +388,7 @@ function Dashboard() {
         schedule_date: editDate,
         categories: categoriesPayload,
         capacities: editCapacities.map(c => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
-        capacities_spot: editCapacitiesSpot.map(c => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
+        capacities_spot: [],
       }
 
       await axios.put(`/api/schedules/${editingSchedule.id}`, payload, {
@@ -529,7 +522,11 @@ function Dashboard() {
                     <h4 className="font-medium">Status</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                   {editCategories.map((cat, idx) => (
-                    <div key={idx} className="border p-3 rounded">
+                    <div key={idx} className={`border p-3 rounded ${
+                      ['Spot/Parado', 'Spot disponibilizado'].includes(cat.category_name)
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-white'
+                    }`}>
                       {cat.category_name === 'Perdidas' ? (
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -544,8 +541,9 @@ function Dashboard() {
                             </button>
                           </div>
                           {(cat.items || []).map((item, itemIdx) => (
-                            <div key={itemIdx} className="flex gap-2 mb-2 items-start">
-                              <div className="min-w-[70px]">
+                            <div key={itemIdx} className="flex flex-col gap-2 mb-4 border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                              <div className="flex gap-2 items-start">
+                                <div className="w-20">
                                 <input
                                   type="number"
                                   min="0"
@@ -823,6 +821,26 @@ function Dashboard() {
                                     <span className="font-bold text-gray-800">{plate.plate_number || 'S/ Placa'}</span>: <span className="text-gray-600 italic">{plate.reason}</span>
                                   </div>
                                 ))}
+                              </div>
+                              <div className="flex gap-2 items-start">
+                                <div className="flex-1">
+                                  <input
+                                    type="text"
+                                    value={item.plate || ''}
+                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'plate', e.target.value)}
+                                    className="w-full px-2 py-1 border rounded text-sm"
+                                    placeholder="Placa"
+                                  />
+                                </div>
+                                <div className="flex-[2]">
+                                  <input
+                                    type="text"
+                                    value={item.reason || ''}
+                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'reason', e.target.value)}
+                                    className="w-full px-2 py-1 border rounded text-sm"
+                                    placeholder="Motivo"
+                                  />
+                                </div>
                               </div>
                             </div>
                           )}

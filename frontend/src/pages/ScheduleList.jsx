@@ -21,7 +21,6 @@ function ScheduleList() {
   const [editDate, setEditDate] = useState('')
   const [editCategories, setEditCategories] = useState([])
   const [editCapacities, setEditCapacities] = useState([])
-  const [editCapacitiesSpot, setEditCapacitiesSpot] = useState([])
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState(null)
   const [allCategories, setAllCategories] = useState(getFallbackCategories())
@@ -31,15 +30,19 @@ function ScheduleList() {
     const existingItems = (category.items || []).map((item) => ({
       count: item.count || 0,
       profile_name: item.profile_name || '',
+      plate: item.plate || '',
+      reason: item.reason || '',
     }))
     if (existingItems.length === 0) {
       if (category.count > 0) {
         existingItems.push({
           count: category.count,
           profile_name: category.profile_name || '',
+          plate: category.lost_plates?.[0]?.plate_number || '',
+          reason: category.lost_plates?.[0]?.reason || '',
         })
       } else {
-        existingItems.push({ count: 0, profile_name: '' })
+        existingItems.push({ count: 0, profile_name: '', plate: '', reason: '' })
       }
     }
     const total = existingItems.reduce((sum, item) => sum + (item.count || 0), 0)
@@ -47,23 +50,26 @@ function ScheduleList() {
       ...category,
       items: existingItems,
       count: total,
+      lost_plates: [],
       profile_name: '',
     }
   }
 
   const buildEditCategories = (existingCats) => {
     const categoryMap = new Map()
-    allCategories.forEach((cat) => {
+    allCategories.filter(c => c.name !== 'Indisponíveis').forEach((cat) => {
       categoryMap.set(cat.name, {
         category_name: cat.name,
         count: 0,
         profile_name: '',
         lost_plates: [],
-        items: cat.name === 'Perdidas' ? [{ count: 0, profile_name: '' }] : [],
+        items: cat.name === 'Perdidas' ? [{ count: 0, profile_name: '', plate: '', reason: '' }] : [],
       })
     })
 
     existingCats.forEach((cat) => {
+      if (cat.category_name === 'Indisponíveis') return
+
       if (cat.category_name === 'Perdidas') {
         const base = categoryMap.get('Perdidas') ?? {
           category_name: 'Perdidas',
@@ -76,6 +82,8 @@ function ScheduleList() {
         base.items.push({
           count: cat.count,
           profile_name: cat.profile_name || '',
+          plate: cat.lost_plates?.[0]?.plate_number || '',
+          reason: cat.lost_plates?.[0]?.reason || ''
         })
         base.count = base.items.reduce((sum, item) => sum + (item.count || 0), 0)
         categoryMap.set('Perdidas', base)
@@ -104,7 +112,7 @@ function ScheduleList() {
       const next = [...prev]
       const target = { ...next[catIndex] }
       const items = [...(target.items || [])]
-      items.push({ count: 0, profile_name: '' })
+      items.push({ count: 0, profile_name: '', plate: '', reason: '' })
       target.items = items
       next[catIndex] = target
       return next
@@ -134,7 +142,9 @@ function ScheduleList() {
       if (field === 'count') {
         item.count = parseInt(value) || 0
       } else {
-        item.profile_name = value
+        if (field === 'profile') item.profile_name = value
+        if (field === 'plate') item.plate = value
+        if (field === 'reason') item.reason = value
       }
       items[itemIndex] = item
       target.items = items
@@ -269,14 +279,6 @@ function ScheduleList() {
       return { profile_name: p.name, vehicle_count: 0 }
     })
     setEditCapacities(mergedCaps)
-
-    const existingCapsSpot = schedule.capacities_spot || []
-    const mergedCapsSpot = profiles.map(p => {
-      const existing = existingCapsSpot.find(c => c.profile_name === p.name)
-      if (existing) return { ...existing }
-      return { profile_name: p.name, vehicle_count: 0 }
-    })
-    setEditCapacitiesSpot(mergedCapsSpot)
     
     setEditError(null)
     setEditModalOpen(true)
@@ -288,7 +290,6 @@ function ScheduleList() {
     setEditDate('')
     setEditCategories([])
     setEditCapacities([])
-    setEditCapacitiesSpot([])
     setEditError(null)
   }
 
@@ -298,16 +299,10 @@ function ScheduleList() {
     setEditCategories(copy)
   }
 
-  const handleEditCapacityChange = (index, value, spot=false) => {
-    if (spot) {
-      const copy = [...editCapacitiesSpot]
-      copy[index] = { ...copy[index], vehicle_count: parseInt(value) || 0 }
-      setEditCapacitiesSpot(copy)
-    } else {
-      const copy = [...editCapacities]
-      copy[index] = { ...copy[index], vehicle_count: parseInt(value) || 0 }
-      setEditCapacities(copy)
-    }
+  const handleEditCapacityChange = (index, value) => {
+    const copy = [...editCapacities]
+    copy[index] = { ...copy[index], vehicle_count: parseInt(value) || 0 }
+    setEditCapacities(copy)
   }
 
   const submitEdit = async () => {
@@ -316,9 +311,9 @@ function ScheduleList() {
     // Client-side validation
     for (const c of editCategories) {
       if (c.category_name === 'Perdidas') {
-        const invalidItem = (c.items || []).find(item => item.count > 0 && (!item.profile_name || item.profile_name.trim() === ''))
+        const invalidItem = (c.items || []).find(item => item.count > 0 && (!item.profile_name || item.profile_name.trim() === '' || !item.plate || item.plate.trim() === '' || !item.reason || item.reason.trim() === ''))
         if (invalidItem) {
-          setEditError('Informe o perfil do veículo para o status Perdidas')
+          setEditError('Informe o perfil do veículo, placa e motivo para todas as viagens perdidas')
           return
         }
         const profileNames = profiles.map(p => p.name)
@@ -328,23 +323,6 @@ function ScheduleList() {
           return
         }
       }
-      if (c.category_name === 'Indisponíveis' && c.count > 0) {
-        const plates = c.lost_plates || []
-        const filled = plates.filter(p => p && p.plate_number && p.plate_number.trim() !== '' && p.reason && p.reason.trim() !== '')
-        if (filled.length !== c.count) {
-          setEditError(`Informe ${c.count} placa(s) e motivo(s) para as viagens Indisponíveis`)
-          return
-        }
-      }
-    }
-
-    const spotCat = editCategories.find(c => c.category_name === 'Spot/Parado')
-    if (spotCat) {
-      const totalSpot = editCapacitiesSpot.reduce((s, cap) => s + (cap.vehicle_count || 0), 0)
-        if (spotCat.count !== totalSpot) {
-          setEditError(`A soma dos veículos em SPOT (${totalSpot}) deve ser igual à quantidade em Spot/Parado (${spotCat.count})`)
-          return
-        }
     }
 
     setSavingEdit(true)
@@ -358,7 +336,7 @@ function ScheduleList() {
               category_name: c.category_name,
               count: item.count,
               profile_name: item.profile_name || '',
-              lost_plates: c.lost_plates || [],
+              lost_plates: item.plate && item.reason ? [{ plate_number: item.plate.trim().toUpperCase(), reason: item.reason.trim() }] : [],
             }))
         }
         if (c.count > 0) {
@@ -377,7 +355,7 @@ function ScheduleList() {
         schedule_date: editDate,
         categories: categoriesPayload,
         capacities: editCapacities.map((c) => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
-        capacities_spot: editCapacitiesSpot.map((c) => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
+        capacities_spot: [],
       }
 
       await axios.put(`/api/schedules/${editingSchedule.id}`, payload, {
@@ -675,7 +653,11 @@ function ScheduleList() {
                 <h4 className="font-medium">Status</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                   {editCategories.map((cat, idx) => (
-                    <div key={idx} className="border p-3 rounded">
+                    <div key={idx} className={`border p-3 rounded ${
+                      ['Spot/Parado', 'Spot disponibilizado'].includes(cat.category_name)
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-white'
+                    }`}>
                       {cat.category_name === 'Perdidas' ? (
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -690,8 +672,9 @@ function ScheduleList() {
                             </button>
                           </div>
                           {(cat.items || []).map((item, itemIdx) => (
-                            <div key={itemIdx} className="flex gap-2 mb-2 items-start">
-                              <div className="min-w-[70px]">
+                            <div key={itemIdx} className="flex flex-col gap-2 mb-4 border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                              <div className="flex gap-2 items-start">
+                                <div className="w-20">
                                 <input
                                   type="number"
                                   min="0"
@@ -727,6 +710,26 @@ function ScheduleList() {
                           <div className="text-xs text-gray-500 text-right">
                             Total: {cat.count}
                           </div>
+                              <div className="flex gap-2 items-start">
+                                <div className="flex-1">
+                                  <input
+                                    type="text"
+                                    value={item.plate || ''}
+                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'plate', e.target.value)}
+                                    className="w-full px-2 py-1 border rounded text-sm"
+                                    placeholder="Placa"
+                                  />
+                                </div>
+                                <div className="flex-[2]">
+                                  <input
+                                    type="text"
+                                    value={item.reason || ''}
+                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'reason', e.target.value)}
+                                    className="w-full px-2 py-1 border rounded text-sm"
+                                    placeholder="Motivo"
+                                  />
+                                </div>
+                              </div>
                         </div>
                       ) : (
                         <>
@@ -745,19 +748,7 @@ function ScheduleList() {
                   {editCapacities.map((cap, idx) => (
                     <div key={idx} className="border p-3 rounded">
                       <div className="text-sm font-medium">{cap.profile_name}</div>
-                      <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value, false)} className="mt-2 w-full px-2 py-1 border rounded" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium">Disponibilidade - SPOT</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-                  {editCapacitiesSpot.map((cap, idx) => (
-                    <div key={idx} className="border p-3 rounded">
-                      <div className="text-sm font-medium">{cap.profile_name}</div>
-                      <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value, true)} className="mt-2 w-full px-2 py-1 border rounded" />
+                      <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value)} className="mt-2 w-full px-2 py-1 border rounded" />
                     </div>
                   ))}
                 </div>
