@@ -670,15 +670,15 @@ function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Capacity by Company */}
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Disponibilidade por Empresa (kg)</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Disponibilidade por Empresa</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={metrics?.capacity_by_company || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="company" />
                 <YAxis />
-                <Tooltip formatter={(value) => formatKgFull(value)} />
-                <Bar dataKey="capacity_kg" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Tooltip />
+                <Bar dataKey="vehicles" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

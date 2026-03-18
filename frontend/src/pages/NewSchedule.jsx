@@ -32,8 +32,11 @@ function NewSchedule() {
     return `${y}-${m}-${d}`
   })
   
-  const [categories, setCategories] = useState(buildCategoryState())
-  const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORY_NAMES)
+  const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORY_NAMES.filter(n => n !== 'Indisponíveis'))
+  const [categories, setCategories] = useState(
+    buildCategoryState(DEFAULT_CATEGORY_NAMES.filter(n => n !== 'Indisponíveis'))
+      .map(cat => cat.name === 'Perdidas' ? { ...cat, items: [{ count: 0, profile: '', plate: '', reason: '' }] } : cat)
+  )
   const [ufs, setUfs] = useState(['BAHIA', 'CEARÁ', 'PERNAMBUCO'])
   const [profiles, setProfiles] = useState([])
   
@@ -109,20 +112,23 @@ function NewSchedule() {
       const normalized = normalizeCategoryResponse(res.data)
       const names = normalized.map((cat) => cat.name)
       
+      names = names.filter(n => n !== 'Indisponíveis')
+
       if (!names.includes('Spot disponibilizado')) {
         names.push('Spot disponibilizado')
       }
 
       setCategoryOptions(names)
-      setCategories(buildCategoryState(names))
+      setCategories(buildCategoryState(names).map(cat => cat.name === 'Perdidas' ? { ...cat, items: [{ count: 0, profile: '', plate: '', reason: '' }] } : cat))
     } catch (err) {
       console.error('Erro ao carregar categorias:', err)
-      const fallbackNames = [...DEFAULT_CATEGORY_NAMES]
+      let fallbackNames = [...DEFAULT_CATEGORY_NAMES]
       if (!fallbackNames.includes('Spot disponibilizado')) {
         fallbackNames.push('Spot disponibilizado')
       }
+      fallbackNames = fallbackNames.filter(n => n !== 'Indisponíveis')
       setCategoryOptions(fallbackNames)
-      setCategories(buildCategoryState(fallbackNames))
+      setCategories(buildCategoryState(fallbackNames).map(cat => cat.name === 'Perdidas' ? { ...cat, items: [{ count: 0, profile: '', plate: '', reason: '' }] } : cat))
     }
   }
   
@@ -131,18 +137,7 @@ function NewSchedule() {
     const parsedCount = parseInt(value) || 0
     newCategories[index].count = parsedCount
 
-    if (newCategories[index].name === 'Indisponíveis') {
-      if (parsedCount === 0) {
-        newCategories[index].plates = []
-      } else {
-        const plates = newCategories[index].plates || []
-        const resized = plates.slice(0, parsedCount)
-        while (resized.length < parsedCount) {
-          resized.push({ plate: '', reason: '' })
-        }
-        newCategories[index].plates = resized
-      }
-    } else if (parsedCount === 0) {
+    if (parsedCount === 0) {
       newCategories[index].plates = []
     }
 
@@ -157,6 +152,10 @@ function NewSchedule() {
       item.count = parseInt(value) || 0
     } else if (field === 'profile') {
       item.profile = value
+    } else if (field === 'plate') {
+      item.plate = value
+    } else if (field === 'reason') {
+      item.reason = value
     }
     
     // Recalculate total count for the category
@@ -167,7 +166,7 @@ function NewSchedule() {
 
   const addPerdidasItem = (catIndex) => {
     const newCategories = [...categories]
-    newCategories[catIndex].items.push({ count: 0, profile: '' })
+    newCategories[catIndex].items.push({ count: 0, profile: '', plate: '', reason: '' })
     setCategories(newCategories)
   }
 
@@ -175,38 +174,6 @@ function NewSchedule() {
     const newCategories = [...categories]
     newCategories[catIndex].items.splice(itemIndex, 1)
     newCategories[catIndex].count = newCategories[catIndex].items.reduce((sum, i) => sum + i.count, 0)
-    setCategories(newCategories)
-  }
-  
-  const handlePlateChange = (catIndex, plateIndex, value) => {
-    const newCategories = [...categories]
-    newCategories[catIndex].plates[plateIndex].plate = value
-    setCategories(newCategories)
-  }
-
-  const handlePlateReasonChange = (catIndex, plateIndex, value) => {
-    const newCategories = [...categories]
-    newCategories[catIndex].plates[plateIndex].reason = value
-    setCategories(newCategories)
-  }
-  
-  const addPlate = (catIndex) => {
-    const newCategories = [...categories]
-    const category = newCategories[catIndex]
-    const plates = [...(category.plates || [])]
-    plates.push({ plate: '', reason: '' })
-    category.plates = plates
-    category.count = plates.length
-    setCategories(newCategories)
-  }
-
-  const removePlate = (catIndex, plateIndex) => {
-    const newCategories = [...categories]
-    const category = newCategories[catIndex]
-    const plates = [...(category.plates || [])]
-    plates.splice(plateIndex, 1)
-    category.plates = plates
-    category.count = Math.max(plates.length, 0)
     setCategories(newCategories)
   }
   
@@ -247,22 +214,12 @@ function NewSchedule() {
     setError(null)
     setSuccess(null)
     
-    // Validation for unavailable category
-    const lostCategory = categories.find(c => c.name === 'Indisponíveis')
-    if (lostCategory && lostCategory.count > 0) {
-      const filledPlates = lostCategory.plates.filter(p => p.plate.trim() !== '' && p.reason.trim() !== '')
-      if (filledPlates.length !== lostCategory.count) {
-        setError(`Informe ${lostCategory.count} placa(s) e motivo(s) para as viagens indisponíveis`)
-        return
-      }
-    }
-
     // Validation for lost trips profile requirement
     const lostTrips = categories.find(c => c.name === 'Perdidas')
     if (lostTrips && lostTrips.count > 0) {
-      const invalidItem = lostTrips.items.find(i => i.count > 0 && (!i.profile || i.profile.trim() === ''))
+      const invalidItem = lostTrips.items.find(i => i.count > 0 && (!i.profile || i.profile.trim() === '' || !i.plate || i.plate.trim() === '' || !i.reason || i.reason.trim() === ''))
       if (invalidItem) {
-        setError('Informe o perfil do veículo para todas as viagens perdidas')
+        setError('Informe o perfil do veículo, placa e motivo para todas as viagens perdidas')
         return
       }
       const profileNames = profiles.map(p => p.name)
@@ -305,7 +262,7 @@ function NewSchedule() {
                   category_name: c.name,
                   count: i.count,
                   profile_name: i.profile,
-                  lost_plates: []
+                  lost_plates: i.plate && i.reason ? [{ plate_number: i.plate.trim().toUpperCase(), reason: i.reason.trim() }] : []
                 }))
             }
 
@@ -313,9 +270,7 @@ function NewSchedule() {
               category_name: c.name,
               count: c.count,
               profile_name: c.profile || '',
-              lost_plates: c.name === 'Indisponíveis' 
-                ? c.plates.filter(p => p.plate.trim() !== '' && p.reason.trim() !== '').map(p => ({ plate_number: p.plate.trim().toUpperCase(), reason: p.reason.trim() }))
-                : []
+              lost_plates: []
             }]
           }),
         capacities: capacities
@@ -335,7 +290,7 @@ function NewSchedule() {
       setSuccess('Agendamento salvo com sucesso!')
       
       // Reset form
-      setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '', items: cat === 'Perdidas' ? [{ count: 0, profile: '' }] : [] })))
+      setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '', items: cat === 'Perdidas' ? [{ count: 0, profile: '', plate: '', reason: '' }] : [] })))
       // keep uf list intact
       setCapacities(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
       
@@ -468,38 +423,61 @@ function NewSchedule() {
                 {category.name === 'Perdidas' ? (
                   <div>
                     {category.items.map((item, idx) => (
-                      <div key={idx} className="flex gap-2 mb-2 items-start">
-                        <div className="flex-1">
-                          <input
-                            type="number"
-                            min="0"
-                            value={item.count || ''}
-                            onChange={(e) => handlePerdidasItemChange(index, idx, 'count', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                            placeholder="Qtd"
-                          />
+                      <div key={idx} className="flex flex-col gap-2 mb-4 border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                        <div className="flex gap-2 items-start">
+                          <div className="w-20">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.count || ''}
+                              onChange={(e) => handlePerdidasItemChange(index, idx, 'count', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                              placeholder="Qtd"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <select
+                              value={item.profile || ''}
+                              onChange={(e) => handlePerdidasItemChange(index, idx, 'profile', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            >
+                              <option value="">Perfil...</option>
+                              {profiles.map((p) => (
+                                <option key={p.name} value={p.name}>{p.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          {category.items.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removePerdidasItem(index, idx)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          )}
                         </div>
-                        <div className="flex-[2]">
-                          <select
-                            value={item.profile || ''}
-                            onChange={(e) => handlePerdidasItemChange(index, idx, 'profile', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                          >
-                            <option value="">Perfil...</option>
-                            {profiles.map((p) => (
-                              <option key={p.name} value={p.name}>{p.name}</option>
-                            ))}
-                          </select>
+                        <div className="flex gap-2 items-start">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={item.plate || ''}
+                              onChange={(e) => handlePerdidasItemChange(index, idx, 'plate', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                              placeholder="Placa"
+                              maxLength={8}
+                            />
+                          </div>
+                          <div className="flex-[2]">
+                            <input
+                              type="text"
+                              value={item.reason || ''}
+                              onChange={(e) => handlePerdidasItemChange(index, idx, 'reason', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                              placeholder="Motivo"
+                            />
+                          </div>
                         </div>
-                        {category.items.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removePerdidasItem(index, idx)}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded mt-0.5"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        )}
                       </div>
                     ))}
                     <button
@@ -525,50 +503,6 @@ function NewSchedule() {
                   />
                 )}
                 
-                {/* Lost plates input */}
-                {category.name === 'Indisponíveis' && category.count > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs text-gray-500 mb-2">
-                      Informe as placas ({category.count} veículo(s)) e motivo
-                    </p>
-                    {category.plates.map((plateObj, plateIndex) => (
-                      <div key={plateIndex} className="flex flex-col gap-2 mb-2">
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={plateObj.plate}
-                            onChange={(e) => handlePlateChange(index, plateIndex, e.target.value)}
-                            className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                            placeholder="ABC-1234"
-                            maxLength={8}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removePlate(index, plateIndex)}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <input
-                          type="text"
-                          value={plateObj.reason}
-                          onChange={(e) => handlePlateReasonChange(index, plateIndex, e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                          placeholder="Motivo"
-                        />
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => addPlate(index)}
-                      className="mt-2 text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Adicionar placa
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -624,7 +558,7 @@ function NewSchedule() {
           <button
             type="button"
             onClick={() => {
-              setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '', items: cat === 'Perdidas' ? [{ count: 0, profile: '' }] : [] })))
+              setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '', items: cat === 'Perdidas' ? [{ count: 0, profile: '', plate: '', reason: '' }] : [] })))
               setCapacities(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
               setError(null)
               setSuccess(null)

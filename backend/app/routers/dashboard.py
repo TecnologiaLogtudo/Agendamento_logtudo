@@ -74,16 +74,17 @@ async def get_dashboard_metrics(
         for schedule in schedules:
             company_name = schedule.company.name
             if company_name not in cap_by_company:
-                cap_by_company[company_name] = 0
+                cap_by_company[company_name] = {"kg": 0, "vehicles": 0}
 
             for cap in schedule.capacities:
                 if not profile_name or cap.profile_name == profile_name:
-                    cap_by_company[company_name] += cap.total_weight_kg
+                    cap_by_company[company_name]["kg"] += cap.total_weight_kg
+                    cap_by_company[company_name]["vehicles"] += cap.vehicle_count
 
         capacity_by_company = [
-            {"company": name, "capacity_kg": capacity}
-            for name, capacity in cap_by_company.items()
-            if capacity > 0
+            {"company": name, "capacity_kg": data["kg"], "vehicles": data["vehicles"]}
+            for name, data in cap_by_company.items()
+            if data["kg"] > 0 or data["vehicles"] > 0
         ]
 
         # Categories distribution
