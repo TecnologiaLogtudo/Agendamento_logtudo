@@ -594,7 +594,7 @@ function Dashboard() {
                   </div>
 
                   <div>
-                    <h4 className="font-medium">Capacidades</h4>
+                    <h4 className="font-medium">Disponibilidade</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
                       {editCapacities.map((cap, idx) => (
                         <div key={idx} className="border p-3 rounded">
@@ -623,7 +623,7 @@ function Dashboard() {
               <Package className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Total Capacidade</p>
+              <p className="text-sm text-gray-500">Total Disponibilidade</p>
               <p className="text-2xl font-bold text-gray-800">{formatKg(metrics?.total_capacity_kg || 0)} kg</p>
             </div>
           </div>
@@ -670,7 +670,7 @@ function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Capacity by Company */}
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Capacidade por Empresa (kg)</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Disponibilidade por Empresa (kg)</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={metrics?.capacity_by_company || []}>
@@ -769,7 +769,7 @@ function Dashboard() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UF</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veículos</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacidade</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponibilidade</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>

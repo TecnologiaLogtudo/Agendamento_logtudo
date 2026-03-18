@@ -272,7 +272,7 @@ function NewSchedule() {
     const spotVehiclesCount = calculateTotalVehiclesSpot()
     if (spotCategory && spotCategory.count > 0) {
       if (spotVehiclesCount !== spotCategory.count) {
-        setError(`A soma dos veículos em "Capacidade de Carga - SPOT" (${spotVehiclesCount}) deve ser igual à quantidade em "Spot/Parado" (${spotCategory.count})`)
+        setError(`A soma dos veículos em "Disponibilidade - SPOT" (${spotVehiclesCount}) deve ser igual à quantidade em "Spot/Parado" (${spotCategory.count})`)
         return
       }
     }
@@ -281,7 +281,7 @@ function NewSchedule() {
     const hasCapacities = capacities.some(c => c.count > 0)
     
     if (!hasCategories && !hasCapacities) {
-      setError('Informe pelo menos uma categoria ou capacidade')
+      setError('Informe pelo menos um status ou disponibilidade')
       return
     }
     
@@ -462,7 +462,7 @@ function NewSchedule() {
         
         {/* Categories */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Categorias</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Status</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((category, index) => (
@@ -582,7 +582,7 @@ function NewSchedule() {
         
         {/* Capacities */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Capacidade de Carga</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Disponibilidade</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {capacities.map((capacity, index) => (
@@ -616,7 +616,7 @@ function NewSchedule() {
                 <p className="text-2xl font-bold text-primary-800">{calculateTotalVehicles()}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-primary-700">Capacidade Total</p>
+                <p className="text-sm text-primary-700">Disponibilidade Total</p>
                 <p className="text-2xl font-bold text-primary-800">
                   {calculateTotalCapacity().toLocaleString('pt-BR')} kg
                 </p>
@@ -627,7 +627,7 @@ function NewSchedule() {
         
         {/* Capacities - SPOT */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Capacidade de Carga - SPOT</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Disponibilidade - SPOT</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {capacitiesSpot.map((capacity, index) => (
@@ -661,7 +661,7 @@ function NewSchedule() {
                 <p className="text-2xl font-bold text-primary-800">{calculateTotalVehiclesSpot()}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-primary-700">Capacidade Total</p>
+                <p className="text-sm text-primary-700">Disponibilidade Total</p>
                 <p className="text-2xl font-bold text-primary-800">
                   {calculateTotalCapacitySpot().toLocaleString('pt-BR')} kg
                 </p>

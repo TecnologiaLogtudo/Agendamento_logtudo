@@ -211,7 +211,7 @@ function ScheduleList() {
   
   const handleExport = () => {
     // Exportação CSV Client-side
-    const headers = ['Data', 'Empresa', 'Veículos', 'Capacidade (kg)', 'Categorias', 'Perfis']
+    const headers = ['Data', 'Empresa', 'Veículos', 'Disponibilidade (kg)', 'Status', 'Disponibilidade']
     const csvContent = [
       headers.join(';'),
       ...schedules.map(schedule => {
@@ -318,7 +318,7 @@ function ScheduleList() {
       if (c.category_name === 'Perdidas') {
         const invalidItem = (c.items || []).find(item => item.count > 0 && (!item.profile_name || item.profile_name.trim() === ''))
         if (invalidItem) {
-          setEditError('Informe o perfil do veículo para categorias Perdidas')
+          setEditError('Informe o perfil do veículo para o status Perdidas')
           return
         }
         const profileNames = profiles.map(p => p.name)
@@ -519,13 +519,13 @@ function ScheduleList() {
                     Veículos
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Capacidade
+                    Disponibilidade
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Categorias
+                    Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Perfis
+                    Disponibilidade
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Ações
@@ -642,7 +642,7 @@ function ScheduleList() {
             </p>
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-            <p className="text-sm text-gray-500">Total de Capacidade</p>
+            <p className="text-sm text-gray-500">Total de Disponibilidade</p>
             <p className="text-xl font-bold text-gray-800">
               {formatKg(schedules.reduce((sum, s) => sum + s.total_capacity_kg, 0))} kg
             </p>
@@ -672,7 +672,7 @@ function ScheduleList() {
 
             <div className="space-y-4">
               <div>
-                <h4 className="font-medium">Categorias</h4>
+                <h4 className="font-medium">Status</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                   {editCategories.map((cat, idx) => (
                     <div key={idx} className="border p-3 rounded">
@@ -740,7 +740,7 @@ function ScheduleList() {
               </div>
 
               <div>
-                <h4 className="font-medium">Capacidades</h4>
+                <h4 className="font-medium">Disponibilidade</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
                   {editCapacities.map((cap, idx) => (
                     <div key={idx} className="border p-3 rounded">
@@ -752,7 +752,7 @@ function ScheduleList() {
               </div>
 
               <div>
-                <h4 className="font-medium">Capacidades - SPOT</h4>
+                <h4 className="font-medium">Disponibilidade - SPOT</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
                   {editCapacitiesSpot.map((cap, idx) => (
                     <div key={idx} className="border p-3 rounded">
