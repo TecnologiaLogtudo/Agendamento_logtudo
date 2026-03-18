@@ -1,0 +1,12 @@
+Substiruir 
+'Categorias' por 'Status'
+'Capacidade de Carga' - 'disponibilidade'
+Calculo veículos - Disponibilizados (Em rota, Reentrega, Em viagem, diária)
+
+Remover
+card 'Spot/parado" e 'Capacidade - Spot"
+'Perdidas'
+
+Add
+Spot disponibilizado, Spot utilizado em 'Status' (não entra em cálculo e gráficos)
+Perdidas - Placa, Motivo, Perfil

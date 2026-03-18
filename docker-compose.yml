@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: logisched_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sua_senha_forte_aqui}
+      POSTGRES_DB: agendamento_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: logisched_backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@db:5432/agendamento_db
+      SECRET_KEY: ${SECRET_KEY:-sua_senha_forte_aqui}
+      DEBUG: "false"
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      ADMIN_PASSWORD: "Agenda@26" 
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.logisched_backend.rule=Host(`agenda.logtudo.com.br`)
+      - traefik.http.routers.logisched_backend.entrypoints=http,https
+      - traefik.http.services.logisched_backend.loadbalancer.server.port=8000
+      - coolify.managed=true
+      - coolify.proxy=true
+
+volumes:
+  postgres_data:
