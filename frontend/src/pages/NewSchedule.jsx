@@ -202,7 +202,9 @@ function NewSchedule() {
   }
   
   const calculateTotalVehicles = () => {
-    return capacities.reduce((total, cap) => total + cap.count, 0)
+    return categories
+      .filter(cat => ["Carros em rota", "Reentrega", "Em viagem", "Diária"].includes(cat.name))
+      .reduce((total, cat) => total + (parseInt(cat.count) || 0), 0)
   }
   
   const calculateTotalVehiclesSpot = () => {

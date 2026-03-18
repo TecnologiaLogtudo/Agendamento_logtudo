@@ -79,7 +79,10 @@ async def get_dashboard_metrics(
             for cap in schedule.capacities:
                 if not profile_name or cap.profile_name == profile_name:
                     cap_by_company[company_name]["kg"] += cap.total_weight_kg
-                    cap_by_company[company_name]["vehicles"] += cap.vehicle_count
+                    
+            for cat in schedule.categories:
+                if cat.category_name in ["Carros em rota", "Reentrega", "Em viagem", "Diária"]:
+                    cap_by_company[company_name]["vehicles"] += cat.count
 
         capacity_by_company = [
             {"company": name, "capacity_kg": data["kg"], "vehicles": data["vehicles"]}
@@ -158,7 +161,7 @@ async def get_dashboard_metrics(
         for schedule in schedules:
             companies_by_id[schedule.company.id] = schedule.company
             for cat in schedule.categories:
-                if cat.category_name != 'Spot/Parado':
+                if cat.category_name in ["Carros em rota", "Reentrega", "Em viagem", "Diária"]:
                     realizado_by_company[schedule.company.id] += cat.count
 
         num_days = 1
