@@ -39,8 +39,6 @@ function NewSchedule() {
   
   const [capacities, setCapacities] = useState([])
   
-  const [capacitiesSpot, setCapacitiesSpot] = useState([])
-  
   useEffect(() => {
     fetchCompanies()
     fetchUfs()
@@ -61,7 +59,6 @@ function NewSchedule() {
       setProfiles(mapped)
       // reset capacities to match whichever profiles we've just loaded
       setCapacities(mapped.map(p => ({ name: p.name, weight: p.weight, count: 0 })))
-      setCapacitiesSpot(mapped.map(p => ({ name: p.name, weight: p.weight, count: 0 })))
     } catch (err) {
       console.error('Erro ao buscar perfis:', err)
     }
@@ -111,12 +108,21 @@ function NewSchedule() {
       const res = await axios.get('/api/categories')
       const normalized = normalizeCategoryResponse(res.data)
       const names = normalized.map((cat) => cat.name)
+      
+      if (!names.includes('Spot disponibilizado')) {
+        names.push('Spot disponibilizado')
+      }
+
       setCategoryOptions(names)
       setCategories(buildCategoryState(names))
     } catch (err) {
       console.error('Erro ao carregar categorias:', err)
-      setCategoryOptions(DEFAULT_CATEGORY_NAMES)
-      setCategories(buildCategoryState())
+      const fallbackNames = [...DEFAULT_CATEGORY_NAMES]
+      if (!fallbackNames.includes('Spot disponibilizado')) {
+        fallbackNames.push('Spot disponibilizado')
+      }
+      setCategoryOptions(fallbackNames)
+      setCategories(buildCategoryState(fallbackNames))
     }
   }
   
@@ -267,16 +273,6 @@ function NewSchedule() {
       }
     }
     
-    // Validation for Spot/Parado category
-    const spotCategory = categories.find(c => c.name === 'Spot/Parado')
-    const spotVehiclesCount = calculateTotalVehiclesSpot()
-    if (spotCategory && spotCategory.count > 0) {
-      if (spotVehiclesCount !== spotCategory.count) {
-        setError(`A soma dos veículos em "Disponibilidade - SPOT" (${spotVehiclesCount}) deve ser igual à quantidade em "Spot/Parado" (${spotCategory.count})`)
-        return
-      }
-    }
-    
     const hasCategories = categories.some(c => c.count > 0)
     const hasCapacities = capacities.some(c => c.count > 0)
     
@@ -328,12 +324,7 @@ function NewSchedule() {
             profile_name: c.name,
             vehicle_count: c.count
           })),
-        capacities_spot: capacitiesSpot
-          .filter(c => c.count > 0)
-          .map(c => ({
-            profile_name: c.name,
-            vehicle_count: c.count
-          }))
+        capacities_spot: []
       }
       
       await axios.post('/api/schedules', payload, {
@@ -347,7 +338,6 @@ function NewSchedule() {
       setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '', items: cat === 'Perdidas' ? [{ count: 0, profile: '' }] : [] })))
       // keep uf list intact
       setCapacities(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
-      setCapacitiesSpot(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
       
     } catch (err) {
       console.error('Erro ao salvar:', err)
@@ -466,7 +456,11 @@ function NewSchedule() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((category, index) => (
-              <div key={category.name} className="border border-gray-200 rounded-lg p-4">
+              <div key={category.name} className={`border rounded-lg p-4 ${
+                ['Spot/Parado', 'Spot disponibilizado'].includes(category.name)
+                  ? 'bg-blue-50 border-blue-200'
+                  : 'bg-white border-gray-200'
+              }`}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {category.name}
                 </label>
@@ -625,51 +619,6 @@ function NewSchedule() {
           </div>
         </div>
         
-        {/* Capacities - SPOT */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Disponibilidade - SPOT</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {capacitiesSpot.map((capacity, index) => (
-              <div key={capacity.name} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Perfil {capacity.name}
-                  </label>
-                  <span className="text-xs text-gray-500">{capacity.weight} kg/veículo</span>
-                </div>
-                <input
-                  type="number"
-                  min="0"
-                  value={capacity.count || ''}
-                  onChange={(e) => handleCapacitySpotChange(index, e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="0"
-                />
-                <div className="mt-2 text-sm text-gray-600">
-                  Total: {(capacity.count * capacity.weight).toLocaleString('pt-BR')} kg
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Total - SPOT */}
-          <div className="mt-6 p-4 bg-primary-50 rounded-lg">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm text-primary-700">Total de Veículos</p>
-                <p className="text-2xl font-bold text-primary-800">{calculateTotalVehiclesSpot()}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-primary-700">Disponibilidade Total</p>
-                <p className="text-2xl font-bold text-primary-800">
-                  {calculateTotalCapacitySpot().toLocaleString('pt-BR')} kg
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        
         {/* Submit */}
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 mt-6">
           <button
@@ -677,7 +626,6 @@ function NewSchedule() {
             onClick={() => {
               setCategories(categoryOptions.map((cat) => ({ name: cat, count: 0, plates: [], profile: '', items: cat === 'Perdidas' ? [{ count: 0, profile: '' }] : [] })))
               setCapacities(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
-              setCapacitiesSpot(profiles.map((p) => ({ name: p.name, weight: p.weight, count: 0 })))
               setError(null)
               setSuccess(null)
             }}
