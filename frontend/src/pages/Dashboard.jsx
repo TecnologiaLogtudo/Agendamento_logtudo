@@ -707,7 +707,7 @@ function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {metrics?.recent_schedules?.map((schedule) => (
+              {metrics?.recent_schedules?.map((schedule, rowIndex) => (
                 <tr key={schedule.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
                       {schedule.schedule_date.split('-').reverse().join('/')}
@@ -748,8 +748,14 @@ function Dashboard() {
                           
                           {/* Tooltip para Indisponíveis */}
                           {cat.category_name === 'Indisponíveis' && cat.lost_plates && cat.lost_plates.length > 0 && (
-                            <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50">
-                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-white"></div>
+                            <div className={`hidden group-hover:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 ${
+                              rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
+                            }`}>
+                              {rowIndex === 0 ? (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -mb-1 border-4 border-transparent border-b-white"></div>
+                              ) : (
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-white"></div>
+                              )}
                               <p className="font-semibold text-gray-700 mb-2 border-b pb-1 text-left">Motivos ({cat.count})</p>
                               <div className="max-h-48 overflow-y-auto">
                                 {cat.lost_plates.map((plate, idx) => (
@@ -763,8 +769,14 @@ function Dashboard() {
 
                           {/* Tooltip para Perdidas */}
                           {cat.category_name === 'Perdidas' && (
-                            <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal">
-                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-white"></div>
+                            <div className={`hidden group-hover:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal ${
+                              rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
+                            }`}>
+                              {rowIndex === 0 ? (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -mb-1 border-4 border-transparent border-b-white"></div>
+                              ) : (
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-white"></div>
+                              )}
                               <div className="text-left text-xs">
                                 <p><span className="font-bold">Perfil:</span> {cat.profile_name || 'N/A'}</p>
                                 <p><span className="font-bold">Qtd:</span> {cat.count}</p>
