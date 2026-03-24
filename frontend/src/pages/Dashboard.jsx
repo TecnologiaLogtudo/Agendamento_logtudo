@@ -739,6 +739,8 @@ function Dashboard() {
                               ? 'bg-amber-100 text-[#f59e0b]'
                               : cat.category_name === 'Spot/Parado'
                               ? 'bg-gray-100 text-gray-700'
+                              : cat.category_name === 'Spot disponibilizado'
+                              ? 'bg-gray-100 text-gray-700'                              
                               : 'bg-blue-100 text-blue-700'
                           }`}
                         >

@@ -10,6 +10,7 @@ function ScheduleList() {
   
   // Filters
   const [companyFilter, setCompanyFilter] = useState('')
+  const [ufFilter, setUfFilter] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   
@@ -216,15 +217,21 @@ function ScheduleList() {
     loadInitialData()
   }, [])
   
-  const fetchSchedules = async () => {
+  const fetchSchedules = async (filters = {}) => {
     try {
       setLoading(true)
       let url = '/api/schedules'
       const params = []
+
+      const selectedCompanyFilter = filters.companyFilter ?? companyFilter
+      const selectedUfFilter = filters.ufFilter ?? ufFilter
+      const selectedStartDate = filters.startDate ?? startDate
+      const selectedEndDate = filters.endDate ?? endDate
       
-      if (companyFilter) params.push(`company_id=${companyFilter}`)
-      if (startDate) params.push(`start_date=${startDate}`)
-      if (endDate) params.push(`end_date=${endDate}`)
+      if (selectedCompanyFilter) params.push(`company_id=${selectedCompanyFilter}`)
+      if (selectedUfFilter) params.push(`uf=${selectedUfFilter}`)
+      if (selectedStartDate) params.push(`start_date=${selectedStartDate}`)
+      if (selectedEndDate) params.push(`end_date=${selectedEndDate}`)
       
       if (params.length > 0) url += '?' + params.join('&')
       
@@ -244,9 +251,10 @@ function ScheduleList() {
   
   const clearFilters = () => {
     setCompanyFilter('')
+    setUfFilter('')
     setStartDate('')
     setEndDate('')
-    fetchSchedules()
+    fetchSchedules({ companyFilter: '', ufFilter: '', startDate: '', endDate: '' })
   }
   
   const handleExport = () => {
@@ -469,7 +477,23 @@ function ScheduleList() {
                 ))}
               </select>
             </div>
-            
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                UF
+              </label>
+              <select
+                value={ufFilter}
+                onChange={(e) => setUfFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">Todas</option>
+                {ufs.map((uf) => (
+                  <option key={uf} value={uf}>{uf}</option>
+                ))}
+              </select>
+            </div>
+             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Data Início
