@@ -471,13 +471,13 @@ function Dashboard() {
   
   return (
     <div>
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Dashboard</h1>
         <p className="text-gray-500">Visão geral dos agendamentos</p>
       </div>
       
       {/* Filters */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
           <select
@@ -542,8 +542,8 @@ function Dashboard() {
       </div>
       
       {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-100 rounded-lg">
               <Package className="w-6 h-6 text-blue-600" />
@@ -555,7 +555,7 @@ function Dashboard() {
           </div>
         </div>
         
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-100 rounded-lg">
               <Truck className="w-6 h-6 text-green-600" />
@@ -567,7 +567,7 @@ function Dashboard() {
           </div>
         </div>
         
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-red-100 rounded-lg">
               <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -579,7 +579,7 @@ function Dashboard() {
           </div>
         </div>
         
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-purple-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-purple-600" />
@@ -593,25 +593,27 @@ function Dashboard() {
       </div>
       
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-8">
         {/* Capacity by Company */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Disponibilidade por Empresa</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics?.capacity_by_company || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="company" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="vehicles" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-64 overflow-x-auto">
+            <div className="h-full min-w-[560px] lg:min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metrics?.capacity_by_company || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="company" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="vehicles" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
         
         {/* Status Distribution */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Distribuição por Status</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -641,92 +643,96 @@ function Dashboard() {
       
       {/* New Chart Row */}
       <div className="grid grid-cols-1 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Evolução Diária: Realizado vs. Meta (Veículos)</h2>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={dailyEvolution}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="displayDate" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                {companyFilter ? (
-                  <>
-                    <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" barSize={20} radius={[4, 4, 0, 0]} />
-                    <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} legendType="none" />
-                  </>
-                ) : (
-                  <>
-                    {companies.map((company, index) => (
-                      <Bar key={company.id} dataKey={company.name} fill={COLORS[index % COLORS.length]} name={company.name} radius={[4, 4, 0, 0]} barSize={20} />
-                    ))}
-                    {companies.map((company, index) => (
-                        <Line 
-                            key={`meta-${company.id}`} 
-                            type="monotone" 
-                            dataKey={`meta_${company.name}`} 
-                            stroke={COLORS[index % COLORS.length]} 
-                            name={`Meta ${company.name}`} 
-                            strokeWidth={2} 
-                            dot={false} 
-                            strokeDasharray="5 5"
-                            legendType="none"
-                        />
-                    ))}
-                  </>
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
+          <div className="h-80 overflow-x-auto">
+            <div className="h-full min-w-[720px] lg:min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={dailyEvolution}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="displayDate" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  {companyFilter ? (
+                    <>
+                      <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" barSize={20} radius={[4, 4, 0, 0]} />
+                      <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} legendType="none" />
+                    </>
+                  ) : (
+                    <>
+                      {companies.map((company, index) => (
+                        <Bar key={company.id} dataKey={company.name} fill={COLORS[index % COLORS.length]} name={company.name} radius={[4, 4, 0, 0]} barSize={20} />
+                      ))}
+                      {companies.map((company, index) => (
+                          <Line 
+                              key={`meta-${company.id}`} 
+                              type="monotone" 
+                              dataKey={`meta_${company.name}`} 
+                              stroke={COLORS[index % COLORS.length]} 
+                              name={`Meta ${company.name}`} 
+                              strokeWidth={2} 
+                              dot={false} 
+                              strokeDasharray="5 5"
+                              legendType="none"
+                          />
+                      ))}
+                    </>
+                  )}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       </div>
       
       {/* Recent Schedules */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-4 sm:p-6 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800">Agendamentos Recentes</h2>
         </div>
+        <div className="px-4 pt-3 text-xs text-gray-500 sm:hidden">Arraste a tabela para o lado para ver todos os dados.</div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[860px]">
             <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UF</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veículos</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponibilidade</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UF</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veículos</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponibilidade</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {metrics?.recent_schedules?.map((schedule, rowIndex) => (
                 <tr key={schedule.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
                       {schedule.schedule_date.split('-').reverse().join('/')}
                       {schedule.updated_at && (
                         <div className="text-xs text-gray-400">Atualizado em: {new Date(schedule.updated_at).toLocaleDateString('pt-BR')}</div>
                       )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                     {companies.find(c => c.id === schedule.company_id)?.name || `Empresa ${schedule.company_id}`}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
                     {schedule.uf}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {schedule.total_vehicles}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {formatKgFull(schedule.total_capacity_kg)} kg
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     <div className="flex flex-wrap gap-1">
                       {schedule.categories.map((cat) => (
                         <span 
                           key={cat.id}
-                          className={`group relative cursor-help px-2 py-1 rounded-full text-xs ${
+                          tabIndex={0}
+                          className={`group relative cursor-help focus:outline-none focus:ring-2 focus:ring-primary-500 px-2 py-1 rounded-full text-xs ${
                             cat.category_name === 'Perdidas' 
                               ? 'bg-red-100 text-red-700' 
                               : cat.category_name === 'Indisponíveis'
@@ -742,7 +748,7 @@ function Dashboard() {
                           
                           {/* Tooltip para Indisponíveis */}
                           {cat.category_name === 'Indisponíveis' && cat.lost_plates && cat.lost_plates.length > 0 && (
-                            <div className={`hidden group-hover:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 ${
+                            <div className={`hidden group-hover:block group-focus:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 ${
                               rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
                             }`}>
                               {rowIndex === 0 ? (
@@ -763,7 +769,7 @@ function Dashboard() {
 
                           {/* Tooltip para Perdidas */}
                           {cat.category_name === 'Perdidas' && (
-                            <div className={`hidden group-hover:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal ${
+                            <div className={`hidden group-hover:block group-focus:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal ${
                               rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
                             }`}>
                               {rowIndex === 0 ? (
@@ -783,7 +789,7 @@ function Dashboard() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {isAdmin && (
                       <button
                         onClick={() => openEditModal(schedule)}
@@ -797,7 +803,7 @@ function Dashboard() {
               ))}
               {(!metrics?.recent_schedules || metrics.recent_schedules.length === 0) && (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="6" className="px-3 sm:px-6 py-8 text-center text-gray-500">
                     Nenhum agendamento encontrado
                   </td>
                 </tr>

@@ -429,16 +429,16 @@ function ScheduleList() {
 
   return (
     <div>
-      <div className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 sm:mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Histórico de Agendamentos</h1>
           <p className="text-gray-500">Lista de todos os agendamentos realizados</p>
         </div>
         
-        <div className="flex gap-3 self-start md:self-center">
+        <div className="flex w-full md:w-auto gap-2 sm:gap-3 self-start md:self-center">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+            className={`md:hidden flex-1 sm:flex-none px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${
               showFilters 
                 ? 'bg-primary-100 text-primary-700' 
                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -450,7 +450,7 @@ function ScheduleList() {
           
           <button
             onClick={handleExport}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors"
+            className="flex-1 sm:flex-none px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors"
           >
             <FileDown className="w-4 h-4" />
             Exportar Excel
@@ -459,17 +459,16 @@ function ScheduleList() {
       </div>
       
       {/* Filters */}
-      {showFilters && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <form onSubmit={handleFilter} className="flex flex-wrap gap-4 items-end">
-            <div>
+      <div className={`${showFilters ? 'block' : 'hidden md:block'} bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-6`}>
+          <form onSubmit={handleFilter} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 items-end">
+            <div className="w-full">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Empresa
               </label>
               <select
                 value={companyFilter}
                 onChange={(e) => setCompanyFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
                 <option value="">Todas</option>
                 {companies.map((company) => (
@@ -478,14 +477,14 @@ function ScheduleList() {
               </select>
             </div>
 
-            <div>
+            <div className="w-full">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 UF
               </label>
               <select
                 value={ufFilter}
                 onChange={(e) => setUfFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
                 <option value="">Todas</option>
                 {ufs.map((uf) => (
@@ -494,7 +493,7 @@ function ScheduleList() {
               </select>
             </div>
              
-            <div>
+            <div className="w-full">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Data Início
               </label>
@@ -502,11 +501,11 @@ function ScheduleList() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
             
-            <div>
+            <div className="w-full">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Data Fim
               </label>
@@ -514,14 +513,14 @@ function ScheduleList() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full lg:w-auto">
               <button
                 type="submit"
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                className="flex-1 lg:flex-none px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
                 Aplicar
               </button>
@@ -529,15 +528,14 @@ function ScheduleList() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1"
+                className="flex-1 lg:flex-none px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
               >
                 <X className="w-4 h-4" />
                 Limpar
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </div>
       
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -551,32 +549,34 @@ function ScheduleList() {
             <p className="text-sm">Tente ajustar os filtros ou criar um novo agendamento</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <>
+            <div className="px-4 pt-3 text-xs text-gray-500 sm:hidden">Arraste a tabela para o lado para ver todos os dados.</div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1040px]">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Data
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Empresa
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     UF
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Veículos
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Disponibilidade
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Disponibilidade
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Ações
                   </th>
                 </tr>
@@ -584,29 +584,30 @@ function ScheduleList() {
               <tbody className="divide-y divide-gray-100">
                 {schedules.map((schedule, rowIndex) => (
                   <tr key={schedule.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
                       {schedule.schedule_date.split('-').reverse().join('/')}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-medium text-gray-800">
                         {getCompanyName(schedule.company_id)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
                       {schedule.uf}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {schedule.total_vehicles}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatKg(schedule.total_capacity_kg)} kg
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-4">
                       <div className="flex flex-wrap gap-1">
                         {schedule.categories.map((cat) => (
                           <span
                             key={cat.id}
-                            className={`group relative cursor-help px-2 py-1 rounded-full text-xs ${
+                            tabIndex={0}
+                            className={`group relative cursor-help focus:outline-none focus:ring-2 focus:ring-primary-500 px-2 py-1 rounded-full text-xs ${
                               cat.category_name === 'Perdidas'
                                 ? 'bg-red-100 text-red-700'
                                 : cat.category_name === 'Indisponíveis'
@@ -622,7 +623,7 @@ function ScheduleList() {
                             
                             {/* Tooltip para Indisponíveis */}
                             {cat.category_name === 'Indisponíveis' && cat.lost_plates && cat.lost_plates.length > 0 && (
-                              <div className={`hidden group-hover:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal ${
+                              <div className={`hidden group-hover:block group-focus:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal ${
                                 rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
                               }`}>
                                 {rowIndex === 0 ? (
@@ -643,7 +644,7 @@ function ScheduleList() {
 
                             {/* Tooltip para Perdidas */}
                             {cat.category_name === 'Perdidas' && (
-                              <div className={`hidden group-hover:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal ${
+                              <div className={`hidden group-hover:block group-focus:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal ${
                                 rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
                               }`}>
                                 {rowIndex === 0 ? (
@@ -663,7 +664,7 @@ function ScheduleList() {
                         ))}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-4">
                       <div className="flex flex-wrap gap-1">
                         {schedule.capacities.map((cap) => (
                           <span
@@ -675,7 +676,7 @@ function ScheduleList() {
                         ))}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {isAdmin && (
                         <button
                           onClick={() => openEditModal(schedule)}
@@ -688,8 +689,9 @@ function ScheduleList() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+          </>
         )}
       </div>
       
