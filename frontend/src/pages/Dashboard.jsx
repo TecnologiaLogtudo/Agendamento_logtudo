@@ -456,6 +456,14 @@ function Dashboard() {
   const formatKgFull = (kg) => {
     return kg.toLocaleString('pt-BR')
   }
+
+  const formatUf = (uf) => {
+    const normalized = (uf || '').toString().trim().toUpperCase()
+    if (normalized === 'BAHIA') return 'BA'
+    if (normalized === 'PERNAMBUCO') return 'PE'
+    if (normalized === 'CEARÁ' || normalized === 'CEARA') return 'CE'
+    return uf
+  }
   
   if (loading) {
     return (
@@ -714,40 +722,40 @@ function Dashboard() {
         </div>
         <div className="px-4 pt-3 text-xs text-gray-500 sm:hidden">Arraste a tabela para o lado para ver todos os dados.</div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px]">
+          <table className="w-full min-w-[640px] sm:min-w-[860px]">
             <thead>
               <tr>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UF</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veículos</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponibilidade</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UF</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veículos</th>
+                <th className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponibilidade</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {metrics?.recent_schedules?.map((schedule, rowIndex) => (
                 <tr key={schedule.id} className="hover:bg-gray-50">
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-800">
                       {schedule.schedule_date.split('-').reverse().join('/')}
                       {schedule.updated_at && (
-                        <div className="text-xs text-gray-400">Atualizado em: {new Date(schedule.updated_at).toLocaleDateString('pt-BR')}</div>
+                        <div className="hidden sm:block text-xs text-gray-400">Atualizado em: {new Date(schedule.updated_at).toLocaleDateString('pt-BR')}</div>
                       )}
                   </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                     {companies.find(c => c.id === schedule.company_id)?.name || `Empresa ${schedule.company_id}`}
                   </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                    {schedule.uf}
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-800">
+                    {formatUf(schedule.uf)}
                   </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
                     {schedule.total_vehicles}
                   </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
                     {formatKgFull(schedule.total_capacity_kg)} kg
                   </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
                     <div className="flex flex-wrap gap-1">
                       {schedule.categories.map((cat) => (
                         <span 
@@ -810,7 +818,7 @@ function Dashboard() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
                     {isAdmin && (
                       <button
                         onClick={() => openEditModal(schedule)}
@@ -823,11 +831,18 @@ function Dashboard() {
                 </tr>
               ))}
               {(!metrics?.recent_schedules || metrics.recent_schedules.length === 0) && (
-                <tr>
-                  <td colSpan="6" className="px-3 sm:px-6 py-8 text-center text-gray-500">
-                    Nenhum agendamento encontrado
-                  </td>
-                </tr>
+                <>
+                  <tr className="sm:hidden">
+                    <td colSpan="5" className="px-2 py-8 text-center text-gray-500">
+                      Nenhum agendamento encontrado
+                    </td>
+                  </tr>
+                  <tr className="hidden sm:table-row">
+                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                      Nenhum agendamento encontrado
+                    </td>
+                  </tr>
+                </>
               )}
             </tbody>
           </table>

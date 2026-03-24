@@ -296,6 +296,14 @@ function ScheduleList() {
   }
   
   const formatKg = (kg) => kg.toLocaleString('pt-BR')
+
+  const formatUf = (uf) => {
+    const normalized = (uf || '').toString().trim().toUpperCase()
+    if (normalized === 'BAHIA') return 'BA'
+    if (normalized === 'PERNAMBUCO') return 'PE'
+    if (normalized === 'CEARÁ' || normalized === 'CEARA') return 'CE'
+    return uf
+  }
   
   const openEditModal = async (schedule) => {
     setEditingSchedule(schedule)
@@ -552,31 +560,31 @@ function ScheduleList() {
           <>
             <div className="px-4 pt-3 text-xs text-gray-500 sm:hidden">Arraste a tabela para o lado para ver todos os dados.</div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1040px]">
+              <table className="w-full min-w-[760px] sm:min-w-[1040px]">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Data
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Empresa
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     UF
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Veículos
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Disponibilidade
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Disponibilidade
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Ações
                   </th>
                 </tr>
@@ -584,24 +592,24 @@ function ScheduleList() {
               <tbody className="divide-y divide-gray-100">
                 {schedules.map((schedule, rowIndex) => (
                   <tr key={schedule.id} className="hover:bg-gray-50">
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-800">
                       {schedule.schedule_date.split('-').reverse().join('/')}
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <span className="text-sm font-medium text-gray-800">
                         {getCompanyName(schedule.company_id)}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                      {schedule.uf}
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-800">
+                      {formatUf(schedule.uf)}
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
                       {schedule.total_vehicles}
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatKg(schedule.total_capacity_kg)} kg
                     </td>
-                    <td className="px-3 sm:px-6 py-4">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4">
                       <div className="flex flex-wrap gap-1">
                         {schedule.categories.map((cat) => (
                           <span
@@ -664,7 +672,7 @@ function ScheduleList() {
                         ))}
                       </div>
                     </td>
-                    <td className="px-3 sm:px-6 py-4">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4">
                       <div className="flex flex-wrap gap-1">
                         {schedule.capacities.map((cap) => (
                           <span
@@ -676,7 +684,7 @@ function ScheduleList() {
                         ))}
                       </div>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
                       {isAdmin && (
                         <button
                           onClick={() => openEditModal(schedule)}
