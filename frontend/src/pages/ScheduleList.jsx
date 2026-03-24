@@ -15,15 +15,43 @@ function ScheduleList() {
   
   // Edit state
   const [isAdmin, setIsAdmin] = useState(false)
-  const [profiles, setProfiles] = useState([])
+  const [companies, setCompanies] = useState([])
+  const [ufs, setUfs] = useState([])
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState(null)
+  const [editCompanyId, setEditCompanyId] = useState('')
+  const [editUf, setEditUf] = useState('')
   const [editDate, setEditDate] = useState('')
+  const [editProfiles, setEditProfiles] = useState([])
   const [editCategories, setEditCategories] = useState([])
   const [editCapacities, setEditCapacities] = useState([])
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState(null)
   const [allCategories, setAllCategories] = useState(getFallbackCategories())
+
+  const mapProfiles = (rawProfiles) =>
+    (rawProfiles || []).map((p) => ({
+      name: p.name,
+      weight: p.weight_kg ?? p.weight ?? 0,
+    }))
+
+  const mergeCapacitiesWithProfiles = (profileList, existingCaps = []) =>
+    profileList.map((profile) => {
+      const existing = existingCaps.find((c) => c.profile_name === profile.name)
+      return {
+        profile_name: profile.name,
+        vehicle_count: existing?.vehicle_count || 0,
+        weight: profile.weight,
+      }
+    })
+
+  const loadEditProfiles = async (companyId, existingCaps = []) => {
+    const url = companyId ? `/api/profiles?company_id=${companyId}` : '/api/profiles'
+    const response = await axios.get(url)
+    const mappedProfiles = mapProfiles(response.data)
+    setEditProfiles(mappedProfiles)
+    setEditCapacities(mergeCapacitiesWithProfiles(mappedProfiles, existingCaps))
+  }
 
   const ensurePerdidasItems = (category) => {
     if (category.category_name !== 'Perdidas') return { ...category }
@@ -169,21 +197,23 @@ function ScheduleList() {
     }
 
     // Load profiles for edit modal
-    const loadProfiles = async () => {
+    const loadInitialData = async () => {
       try {
-        const [profRes, catRes] = await Promise.all([
-          axios.get('/api/profiles'),
+        const [companiesRes, ufsRes, catRes] = await Promise.all([
+          axios.get('/api/companies'),
+          axios.get('/api/companies/ufs'),
           axios.get('/api/categories')
         ])
-        setProfiles(profRes.data)
+        setCompanies(companiesRes.data)
+        setUfs(ufsRes.data || [])
         const normalizedCats = normalizeCategoryResponse(catRes.data)
         setAllCategories(normalizedCats)
       } catch (err) {
-        console.error('Erro ao carregar perfis:', err)
+        console.error('Erro ao carregar dados do modal de edição:', err)
         setAllCategories(getFallbackCategories())
       }
     }
-    loadProfiles()
+    loadInitialData()
   }, [])
   
   const fetchSchedules = async () => {
@@ -253,41 +283,54 @@ function ScheduleList() {
   }
   
   const getCompanyName = (id) => {
-    switch (id) {
-      case 1: return '3 Corações'
-      case 2: return 'Itambé'
-      case 3: return 'DPA'
-      default: return 'Desconhecido'
-    }
+    const company = companies.find((c) => c.id === id)
+    return company?.name || `Empresa ${id}`
   }
   
   const formatKg = (kg) => kg.toLocaleString('pt-BR')
   
-  const openEditModal = (schedule) => {
+  const openEditModal = async (schedule) => {
     setEditingSchedule(schedule)
+    setEditCompanyId(String(schedule.company_id || ''))
+    setEditUf(schedule.uf || '')
     setEditDate(schedule.schedule_date)
     
     // Merge categories with all available categories
     const existingCats = schedule.categories || []
     setEditCategories(buildEditCategories(existingCats))
 
-    // Merge capacities with all profiles
+    // Merge capacities with profiles of selected company
     const existingCaps = schedule.capacities || []
-    const mergedCaps = profiles.map(p => {
-      const existing = existingCaps.find(c => c.profile_name === p.name)
-      if (existing) return { ...existing }
-      return { profile_name: p.name, vehicle_count: 0 }
-    })
-    setEditCapacities(mergedCaps)
+    try {
+      await loadEditProfiles(schedule.company_id, existingCaps)
+    } catch (err) {
+      console.error('Erro ao carregar perfis para edição:', err)
+      setEditProfiles([])
+      setEditCapacities(existingCaps)
+    }
     
     setEditError(null)
     setEditModalOpen(true)
   }
 
+  const handleEditCompanyChange = async (value) => {
+    setEditCompanyId(value)
+    try {
+      await loadEditProfiles(value, editCapacities)
+    } catch (err) {
+      console.error('Erro ao atualizar perfis na edição:', err)
+      setEditProfiles([])
+      setEditCapacities([])
+    }
+  }
+
   const closeEditModal = () => {
     setEditModalOpen(false)
     setEditingSchedule(null)
+    setEditCompanyId('')
+    setEditUf('')
     setEditDate('')
+    setEditProfiles([])
     setEditCategories([])
     setEditCapacities([])
     setEditError(null)
@@ -307,6 +350,10 @@ function ScheduleList() {
 
   const submitEdit = async () => {
     if (!editingSchedule) return
+    if (!editCompanyId || !editUf || !editDate) {
+      setEditError('Preencha empresa, UF e data do agendamento')
+      return
+    }
 
     // Client-side validation
     for (const c of editCategories) {
@@ -316,7 +363,7 @@ function ScheduleList() {
           setEditError('Informe o perfil do veículo, placa e motivo para todas as viagens perdidas')
           return
         }
-        const profileNames = profiles.map(p => p.name)
+        const profileNames = editProfiles.map((p) => p.name)
         const invalidProfile = (c.items || []).find(item => item.count > 0 && !profileNames.includes(item.profile_name))
         if (invalidProfile) {
           setEditError(`Perfil selecionado "${invalidProfile.profile_name}" é inválido`)
@@ -350,8 +397,8 @@ function ScheduleList() {
         return []
       })
       const payload = {
-        company_id: editingSchedule.company_id,
-        uf: editingSchedule.uf,
+        company_id: parseInt(editCompanyId, 10),
+        uf: editUf,
         schedule_date: editDate,
         categories: categoriesPayload,
         capacities: editCapacities.map((c) => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
@@ -417,9 +464,9 @@ function ScheduleList() {
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
                 <option value="">Todas</option>
-                <option value="1">3 Corações</option>
-                <option value="2">Itambé</option>
-                <option value="3">DPA</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>{company.name}</option>
+                ))}
               </select>
             </div>
             
@@ -633,14 +680,48 @@ function ScheduleList() {
           <div className="bg-white rounded-lg w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
             <button onClick={closeEditModal} className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"><X /></button>
             <h3 className="text-lg font-semibold mb-4">Editar Agendamento</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
-              <input
-                type="date"
-                value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
+            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
+              <h4 className="text-base font-semibold text-gray-800 mb-3">Informações Gerais</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
+                  <select
+                    value={editCompanyId}
+                    onChange={(e) => handleEditCompanyChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  >
+                    <option value="" disabled>Selecione</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>{company.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">UF</label>
+                  <select
+                    value={editUf}
+                    onChange={(e) => setEditUf(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-primary-300 bg-primary-50 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  >
+                    <option value="" disabled hidden>Escolha uma UF</option>
+                    {ufs.map((uf) => (
+                      <option key={uf} value={uf}>{uf}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data do Agendamento</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  />
+                </div>
+              </div>
             </div>
             {editError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
@@ -691,7 +772,7 @@ function ScheduleList() {
                                     className="w-full px-2 py-1 border rounded text-sm"
                                   >
                                     <option value="">Perfil...</option>
-                                    {profiles.map(p => (
+                                    {editProfiles.map((p) => (
                                       <option key={p.name} value={p.name}>{p.name}</option>
                                     ))}
                                   </select>
@@ -748,7 +829,10 @@ function ScheduleList() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
                   {editCapacities.map((cap, idx) => (
                     <div key={idx} className="border p-3 rounded">
-                      <div className="text-sm font-medium">{cap.profile_name}</div>
+                      <div className="flex justify-between items-center text-sm font-medium">
+                        <span>{cap.profile_name}</span>
+                        <span className="text-xs text-gray-500">{cap.weight || 0} kg/veículo</span>
+                      </div>
                       <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value)} className="mt-2 w-full px-2 py-1 border rounded" />
                     </div>
                   ))}

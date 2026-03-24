@@ -21,12 +21,39 @@ function Dashboard() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState(null)
+  const [editCompanyId, setEditCompanyId] = useState('')
+  const [editUf, setEditUf] = useState('')
   const [editDate, setEditDate] = useState('')
+  const [editProfiles, setEditProfiles] = useState([])
   const [editCategories, setEditCategories] = useState([])
   const [editCapacities, setEditCapacities] = useState([])
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState(null)
   const [allCategories, setAllCategories] = useState(getFallbackCategories())
+
+  const mapProfiles = (rawProfiles) =>
+    (rawProfiles || []).map((p) => ({
+      name: p.name,
+      weight: p.weight_kg ?? p.weight ?? 0,
+    }))
+
+  const mergeCapacitiesWithProfiles = (profileList, existingCaps = []) =>
+    profileList.map((profile) => {
+      const existing = existingCaps.find((c) => c.profile_name === profile.name)
+      return {
+        profile_name: profile.name,
+        vehicle_count: existing?.vehicle_count || 0,
+        weight: profile.weight,
+      }
+    })
+
+  const loadEditProfiles = async (companyId, existingCaps = []) => {
+    const url = companyId ? `/api/profiles?company_id=${companyId}` : '/api/profiles'
+    const response = await axios.get(url)
+    const mappedProfiles = mapProfiles(response.data)
+    setEditProfiles(mappedProfiles)
+    setEditCapacities(mergeCapacitiesWithProfiles(mappedProfiles, existingCaps))
+  }
 
   const ensurePerdidasItems = (category) => {
     if (category.category_name !== 'Perdidas') return { ...category }
@@ -204,9 +231,9 @@ function Dashboard() {
       try {
         const url = companyFilter ? `/api/profiles?company_id=${companyFilter}` : '/api/profiles'
         const res = await axios.get(url)
-        setProfiles(res.data)
+        setProfiles(mapProfiles(res.data))
         // clear profile filter if it no longer exists
-        if (profileFilter && !res.data.some(p => p.name === profileFilter)) {
+        if (profileFilter && !res.data.some((p) => p.name === profileFilter)) {
           setProfileFilter('')
         }
       } catch (err) {
@@ -295,31 +322,48 @@ function Dashboard() {
     setDailyEvolution(data)
   }
 
-  const openEditModal = (schedule) => {
+  const openEditModal = async (schedule) => {
     setEditingSchedule(schedule)
+    setEditCompanyId(String(schedule.company_id || ''))
+    setEditUf(schedule.uf || '')
     setEditDate(schedule.schedule_date)
     
     // Merge categories with all available categories
     const existingCats = schedule.categories || []
     setEditCategories(buildEditCategories(existingCats))
 
-    // Merge capacities with all profiles
+    // Merge capacities with profiles of selected company
     const existingCaps = schedule.capacities || []
-    const mergedCaps = profiles.map(p => {
-      const existing = existingCaps.find(c => c.profile_name === p.name)
-      if (existing) return { ...existing }
-      return { profile_name: p.name, vehicle_count: 0 }
-    })
-    setEditCapacities(mergedCaps)
+    try {
+      await loadEditProfiles(schedule.company_id, existingCaps)
+    } catch (err) {
+      console.error('Erro ao carregar perfis para edição:', err)
+      setEditProfiles([])
+      setEditCapacities(existingCaps)
+    }
     
     setEditError(null)
     setEditModalOpen(true)
   }
 
+  const handleEditCompanyChange = async (value) => {
+    setEditCompanyId(value)
+    try {
+      await loadEditProfiles(value, editCapacities)
+    } catch (err) {
+      console.error('Erro ao atualizar perfis na edição:', err)
+      setEditProfiles([])
+      setEditCapacities([])
+    }
+  }
+
   const closeEditModal = () => {
     setEditModalOpen(false)
     setEditingSchedule(null)
+    setEditCompanyId('')
+    setEditUf('')
     setEditDate('')
+    setEditProfiles([])
     setEditCategories([])
     setEditCapacities([])
     setEditError(null)
@@ -339,6 +383,10 @@ function Dashboard() {
 
   const submitEdit = async () => {
     if (!editingSchedule) return
+    if (!editCompanyId || !editUf || !editDate) {
+      setEditError('Preencha empresa, UF e data do agendamento')
+      return
+    }
 
     // Client-side validation before sending
     // Ensure 'Perdidas' status have a profile when count > 0
@@ -349,7 +397,7 @@ function Dashboard() {
           setEditError('Informe o perfil do veículo, placa e motivo para todas as viagens perdidas')
           return
         }
-        const profileNames = profiles.map(p => p.name)
+        const profileNames = editProfiles.map((p) => p.name)
         const invalidProfile = (c.items || []).find(item => item.count > 0 && !profileNames.includes(item.profile_name))
         if (invalidProfile) {
           setEditError(`Perfil selecionado "${invalidProfile.profile_name}" é inválido`)
@@ -383,11 +431,11 @@ function Dashboard() {
         return []
       })
       const payload = {
-        company_id: editingSchedule.company_id,
-        uf: editingSchedule.uf,
+        company_id: parseInt(editCompanyId, 10),
+        uf: editUf,
         schedule_date: editDate,
         categories: categoriesPayload,
-        capacities: editCapacities.map(c => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
+        capacities: editCapacities.map((c) => ({ profile_name: c.profile_name, vehicle_count: c.vehicle_count })),
         capacities_spot: [],
       }
 
@@ -497,141 +545,6 @@ function Dashboard() {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
           />
         </div>
-          {editModalOpen && editingSchedule && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
-                <button onClick={closeEditModal} className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"><X /></button>
-                <h3 className="text-lg font-semibold mb-4">Editar Agendamento</h3>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
-                  <input
-                    type="date"
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  />
-                </div>
-                {editError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
-                    {editError}
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-medium">Status</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                  {editCategories.map((cat, idx) => (
-                    <div key={idx} className={`border p-3 rounded ${
-                      ['Spot/Parado', 'Spot disponibilizado'].includes(cat.category_name)
-                        ? 'bg-blue-50 border-blue-200'
-                        : 'bg-white'
-                    }`}>
-                      {cat.category_name === 'Perdidas' ? (
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">{cat.category_name}</span>
-                            <button
-                              type="button"
-                              onClick={() => addPerdidasItem(idx)}
-                              className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-semibold"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Adicionar linha
-                            </button>
-                          </div>
-                          {(cat.items || []).map((item, itemIdx) => (
-                            <div key={itemIdx} className="flex flex-col gap-2 mb-4 border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                              <div className="flex gap-2 items-start">
-                                <div className="w-20">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={item.count || ''}
-                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'count', e.target.value)}
-                                    className="w-full px-2 py-1 border rounded text-sm"
-                                    placeholder="Qtd"
-                                  />
-                                </div>
-                                <div className="flex-1">
-                                  <select
-                                    value={item.profile_name || ''}
-                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'profile', e.target.value)}
-                                    className="w-full px-2 py-1 border rounded text-sm"
-                                  >
-                                    <option value="">Perfil...</option>
-                                    {profiles.map(p => (
-                                      <option key={p.name} value={p.name}>{p.name}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                {cat.items.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => removePerdidasItem(idx, itemIdx)}
-                                    className="text-red-500 hover:text-red-700 p-1"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
-                              <div className="flex gap-2 items-start">
-                                <div className="flex-1">
-                                  <input
-                                    type="text"
-                                    value={item.plate || ''}
-                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'plate', e.target.value)}
-                                    className="w-full px-2 py-1 border rounded text-sm"
-                                    placeholder="Placa"
-                                  />
-                                </div>
-                                <div className="flex-[2]">
-                                  <input
-                                    type="text"
-                                    value={item.reason || ''}
-                                    onChange={(e) => handlePerdidasItemChange(idx, itemIdx, 'reason', e.target.value)}
-                                    className="w-full px-2 py-1 border rounded text-sm"
-                                    placeholder="Motivo"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          <div className="text-xs text-gray-500 text-right">
-                            Total: {cat.count}
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="text-sm font-medium">{cat.category_name}</div>
-                          <input type="number" min="0" value={cat.count || 0} onChange={(e) => handleEditCategoryChange(idx, 'count', e.target.value)} className="mt-2 w-full px-2 py-1 border rounded" />
-                        </>
-                      )}
-                    </div>
-                  ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium">Disponibilidade</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-                      {editCapacities.map((cap, idx) => (
-                        <div key={idx} className="border p-3 rounded">
-                          <div className="text-sm font-medium">{cap.profile_name}</div>
-                          <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value)} className="mt-2 w-full px-2 py-1 border rounded" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex justify-end gap-3">
-                  <button onClick={closeEditModal} className="px-4 py-2 border rounded">Cancelar</button>
-                  <button onClick={submitEdit} disabled={savingEdit} className="px-4 py-2 bg-primary-600 text-white rounded">{savingEdit ? 'Salvando...' : 'Salvar'}</button>
-                </div>
-              </div>
-            </div>
-          )}
       </div>
       
       {/* Cards */}
@@ -889,14 +802,48 @@ function Dashboard() {
           <div className="bg-white rounded-lg w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
             <button onClick={closeEditModal} className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"><X /></button>
             <h3 className="text-lg font-semibold mb-4">Editar Agendamento</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
-              <input
-                type="date"
-                value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
+            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
+              <h4 className="text-base font-semibold text-gray-800 mb-3">Informações Gerais</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
+                  <select
+                    value={editCompanyId}
+                    onChange={(e) => handleEditCompanyChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  >
+                    <option value="" disabled>Selecione</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>{company.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">UF</label>
+                  <select
+                    value={editUf}
+                    onChange={(e) => setEditUf(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-primary-300 bg-primary-50 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  >
+                    <option value="" disabled hidden>Escolha uma UF</option>
+                    {ufs.map((uf) => (
+                      <option key={uf} value={uf}>{uf}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data do Agendamento</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  />
+                </div>
+              </div>
             </div>
             {editError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
@@ -947,7 +894,7 @@ function Dashboard() {
                               className="w-full px-2 py-1 border rounded text-sm"
                             >
                               <option value="">Perfil...</option>
-                              {profiles.map(p => (
+                              {editProfiles.map((p) => (
                                 <option key={p.name} value={p.name}>{p.name}</option>
                               ))}
                             </select>
@@ -1004,7 +951,10 @@ function Dashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
                   {editCapacities.map((cap, idx) => (
                     <div key={idx} className="border p-3 rounded">
-                      <div className="text-sm font-medium">{cap.profile_name}</div>
+                      <div className="flex justify-between items-center text-sm font-medium">
+                        <span>{cap.profile_name}</span>
+                        <span className="text-xs text-gray-500">{cap.weight || 0} kg/veículo</span>
+                      </div>
                       <input type="number" min="0" value={cap.vehicle_count || 0} onChange={(e) => handleEditCapacityChange(idx, e.target.value)} className="mt-2 w-full px-2 py-1 border rounded" />
                     </div>
                   ))}
