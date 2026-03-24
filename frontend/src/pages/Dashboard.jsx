@@ -453,16 +453,6 @@ function Dashboard() {
     }
   }
   
-  const formatKg = (kg) => {
-    if (kg >= 1000000) {
-      return `${(kg / 1000000).toFixed(1)}M`
-    }
-    if (kg >= 1000) {
-      return `${(kg / 1000).toFixed(1)}K`
-    }
-    return kg.toString()
-  }
-  
   const formatKgFull = (kg) => {
     return kg.toLocaleString('pt-BR')
   }
@@ -474,6 +464,10 @@ function Dashboard() {
       </div>
     )
   }
+
+  const totalAvailabilityVehicles = metrics?.capacity_by_company?.length
+    ? metrics.capacity_by_company.reduce((sum, item) => sum + (Number(item.vehicles) || 0), 0)
+    : (metrics?.total_vehicles || 0)
   
   return (
     <div>
@@ -556,7 +550,7 @@ function Dashboard() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Total Disponibilidade</p>
-              <p className="text-2xl font-bold text-gray-800">{formatKg(metrics?.total_capacity_kg || 0)} kg</p>
+              <p className="text-2xl font-bold text-gray-800">{totalAvailabilityVehicles}</p>
             </div>
           </div>
         </div>
