@@ -611,11 +611,13 @@ function ScheduleList() {
 
                             {/* Tooltip para Perdidas */}
                             {cat.category_name === 'Perdidas' && (
-                              <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-40 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal">
+                              <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal">
                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-white"></div>
                                 <div className="text-left text-xs">
                                   <p><span className="font-bold">Perfil:</span> {cat.profile_name || 'N/A'}</p>
                                   <p><span className="font-bold">Qtd:</span> {cat.count}</p>
+                                  <p><span className="font-bold">Placa:</span> {cat.lost_plates?.[0]?.plate_number || 'N/A'}</p>
+                                  <p><span className="font-bold">Motivo:</span> {cat.lost_plates?.[0]?.reason || 'N/A'}</p>
                                 </div>
                               </div>
                             )}
