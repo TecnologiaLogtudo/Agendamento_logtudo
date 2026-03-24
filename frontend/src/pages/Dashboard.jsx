@@ -468,6 +468,27 @@ function Dashboard() {
   const totalAvailabilityVehicles = metrics?.capacity_by_company?.length
     ? metrics.capacity_by_company.reduce((sum, item) => sum + (Number(item.vehicles) || 0), 0)
     : (metrics?.total_vehicles || 0)
+
+  const daysBelowGoal = dailyEvolution.reduce((count, day) => {
+    if (companyFilter) {
+      const realized = Number(day.realizado) || 0
+      const goal = Number(day.meta) || 0
+      return goal > 0 && realized < goal ? count + 1 : count
+    }
+
+    const totals = companies.reduce((acc, company) => {
+      const companyName = company.name
+      const realized = Number(day[companyName]) || 0
+      const goal = Number(day[`meta_${companyName}`]) || 0
+      acc.realized += realized
+      if (goal > 0) {
+        acc.goal += goal
+      }
+      return acc
+    }, { realized: 0, goal: 0 })
+
+    return totals.goal > 0 && totals.realized < totals.goal ? count + 1 : count
+  }, 0)
   
   return (
     <div>
@@ -561,8 +582,8 @@ function Dashboard() {
               <Truck className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Veículos Disponibilizados</p>
-              <p className="text-2xl font-bold text-gray-800">{metrics?.total_vehicles || 0}</p>
+              <p className="text-sm text-gray-500">Dias abaixo meta</p>
+              <p className="text-2xl font-bold text-gray-800">{daysBelowGoal}</p>
             </div>
           </div>
         </div>
