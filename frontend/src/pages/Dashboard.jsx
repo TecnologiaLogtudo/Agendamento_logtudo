@@ -533,10 +533,14 @@ function Dashboard() {
   const totalStatusCount = categoryDistribution.reduce((sum, item) => sum + (Number(item.count) || 0), 0)
   const statusCards = categoryDistribution.map((item) => {
     const visual = getStatusVisual(item.category)
+    const count = Number(item.count) || 0
+    const percent = totalStatusCount ? (count / totalStatusCount) * 100 : 0
     return {
       label: item.category,
-      value: totalStatusCount ? `${Math.round(((Number(item.count) || 0) / totalStatusCount) * 100)}%` : '0%',
-      count: Number(item.count) || 0,
+      value: `${Math.round(percent)}%`,
+      count,
+      flexGrow: Math.max(count, 1),
+      flexBasis: `${Math.max(percent, 16)}%`,
       bg: visual.bg,
       text: visual.text,
       small: item.category.length > 10,
@@ -562,19 +566,30 @@ function Dashboard() {
     CE: 'Ceará',
   }
   const maxStateVehicles = Math.max(...Object.values(vehiclesByUf), 1)
-  const topStates = Object.entries(vehiclesByUf)
+  const totalStateVehicles = Object.values(vehiclesByUf).reduce((sum, value) => sum + (Number(value) || 0), 0)
+  const stateTiles = Object.entries(vehiclesByUf)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
     .map(([code, value], index) => ({
       code,
       label: stateNames[code] || code,
+      vehicles: Number(value) || 0,
       value: formatNumber(value),
-      opacity: Math.max(0.4, 1 - index * 0.18),
-      color: '#00288e',
+      percent: totalStateVehicles ? Math.round(((Number(value) || 0) / totalStateVehicles) * 100) : 0,
+      flexGrow: Math.max(Number(value) || 0, 1),
+      flexBasis: `${Math.max(((Number(value) || 0) / maxStateVehicles) * 46, 18)}%`,
+      minHeight: `${Math.max(92, 92 + ((Number(value) || 0) / maxStateVehicles) * 110)}px`,
+      opacity: Math.max(0.42, 1 - index * 0.12),
+      color: (Number(value) || 0) >= maxStateVehicles * 0.66
+        ? '#00288e'
+        : (Number(value) || 0) >= maxStateVehicles * 0.33
+          ? '#0058be'
+          : '#d3e4fe',
+      text: (Number(value) || 0) >= maxStateVehicles * 0.33 ? '#ffffff' : '#0b1c30',
     }))
+  const topStates = stateTiles.slice(0, 4)
   const topState = topStates[0]
-  const topRegionShare = topState && totalAvailabilityVehicles
-    ? Math.round(((vehiclesByUf[topState.code] || 0) / totalAvailabilityVehicles) * 100)
+  const topStateShare = topState && totalStateVehicles
+    ? Math.round(((vehiclesByUf[topState.code] || 0) / totalStateVehicles) * 100)
     : 0
 
   const metricCards = [
@@ -763,18 +778,25 @@ function Dashboard() {
         <div className="col-span-12 rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] p-6 tonal-elevation lg:col-span-5">
           <h2 className="mb-6 text-[20px] font-semibold text-[#0b1c30]">Distribuição por Status</h2>
           {statusCards.length > 0 ? (
-            <div className="grid h-48 w-full grid-cols-4 grid-rows-3 gap-1">
+            <div className="flex h-56 w-full flex-wrap content-stretch gap-1 overflow-hidden rounded-lg">
               {statusCards.map((status) => (
                 <div
                   key={status.label}
-                  className="flex min-h-0 flex-col justify-end rounded-lg p-2"
+                  className="flex min-h-[72px] min-w-[96px] flex-col justify-end rounded-lg p-2"
                   title={`${status.label}: ${formatNumber(status.count)}`}
-                  style={{ backgroundColor: status.bg, color: status.text }}
+                  aria-label={`${status.label}: ${formatNumber(status.count)} veículos, ${status.value}`}
+                  style={{
+                    backgroundColor: status.bg,
+                    color: status.text,
+                    flexGrow: status.flexGrow,
+                    flexBasis: status.flexBasis,
+                  }}
                 >
                   <span className={`text-[8px] font-bold uppercase opacity-80 ${status.small ? 'leading-tight' : ''}`}>
                     {status.label}
                   </span>
                   <span className={`font-bold ${status.small ? 'text-xs' : ''}`}>{status.value}</span>
+                  <span className="text-[10px] font-bold opacity-80">{formatNumber(status.count)}</span>
                 </div>
               ))}
             </div>
@@ -789,8 +811,8 @@ function Dashboard() {
       <div className="mb-8 rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] p-6 tonal-elevation">
         <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <h2 className="text-[20px] font-semibold text-[#0b1c30]">Performance por Região</h2>
-            <p className="text-[14px] text-[#444653]">Volume de veículos operacionais por estado</p>
+            <h2 className="text-[20px] font-semibold text-[#0b1c30]">Performance por Estado</h2>
+            <p className="text-[14px] text-[#444653]">Volume de veículos operacionais por UF existente no sistema</p>
           </div>
           <div className="flex items-center gap-4 rounded-lg border border-[#c4c5d5] bg-white p-3">
             <div className="mr-2 text-[12px] font-bold text-[#444653]">LEGENDA:</div>
@@ -809,19 +831,40 @@ function Dashboard() {
           </div>
         </div>
         <div className="grid grid-cols-12 items-center gap-8">
-          <div className="col-span-12 flex justify-center lg:col-span-7">
-            <svg className="h-auto w-full max-w-md" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-              <path className="map-region" fill="#d3e4fe" d="M30,100 L180,50 L250,150 L180,220 L50,180 Z" />
-              <path className="map-region" fill="#0058be" d="M260,140 L380,100 L450,220 L350,280 L280,220 Z" />
-              <path className="map-region" fill="#d3e4fe" d="M190,230 L270,230 L300,320 L230,350 L160,300 Z" />
-              <path className="map-region" fill="#00288e" d="M280,310 L340,290 L400,350 L350,420 L280,380 Z" />
-              <path className="map-region" fill="#0058be" d="M240,360 L290,390 L280,470 L210,460 Z" />
-              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="100" y="140">NORTE</text>
-              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="340" y="180">NORDESTE</text>
-              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="200" y="290">C.OESTE</text>
-              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="320" y="360">SUDESTE</text>
-              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="240" y="430">SUL</text>
-            </svg>
+          <div className="col-span-12 lg:col-span-7">
+            {stateTiles.length > 0 ? (
+              <div className="flex min-h-[360px] w-full flex-wrap content-stretch gap-2 rounded-xl bg-[#e5eeff]/55 p-3">
+                {stateTiles.map((state) => (
+                  <div
+                    key={state.code}
+                    className="flex min-w-[118px] flex-col justify-between rounded-xl p-4 shadow-sm transition-transform hover:-translate-y-0.5"
+                    title={`${state.label}: ${state.value} veículos`}
+                    aria-label={`${state.label}: ${state.value} veículos, ${state.percent}% do total por estado`}
+                    style={{
+                      backgroundColor: state.color,
+                      color: state.text,
+                      flexGrow: state.flexGrow,
+                      flexBasis: state.flexBasis,
+                      minHeight: state.minHeight,
+                      opacity: state.opacity,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-[28px] font-extrabold leading-none">{state.code}</span>
+                      <span className="rounded-full bg-white/20 px-2 py-1 text-[11px] font-bold">{state.percent}%</span>
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-bold leading-tight">{state.label}</p>
+                      <p className="mt-1 font-mono text-[18px] font-bold">{state.value}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-dashed border-[#c4c5d5] bg-[#e5eeff]/55 p-6 text-center text-[14px] font-semibold text-[#444653]">
+                Nenhum estado encontrado
+              </div>
+            )}
           </div>
           <div className="col-span-12 space-y-4 lg:col-span-5">
             <div className="rounded-xl border border-[#c4c5d5] bg-[#d3e4fe]/30 p-4">
@@ -859,8 +902,8 @@ function Dashboard() {
               <span className="material-symbols-outlined text-[#0058be]">info</span>
               <p className="text-[11px] font-medium leading-tight text-[#0b1c30]">
                 {topState
-                  ? `${topState.label} concentra ${topRegionShare}% do volume filtrado de veículos.`
-                  : 'Aguardando dados regionais para calcular a concentração de veículos.'}
+                  ? `${topState.label} concentra ${topStateShare}% do volume filtrado por estado.`
+                  : 'Aguardando dados estaduais para calcular a concentração de veículos.'}
               </p>
             </div>
           </div>
