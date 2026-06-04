@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, ComposedChart, Line } from 'recharts'
-import { Truck, Package, AlertTriangle, TrendingUp, X, Plus, Trash2 } from 'lucide-react'
+import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line } from 'recharts'
+import { X, Plus, Trash2 } from 'lucide-react'
 import { normalizeCategoryResponse, getFallbackCategories } from '../constants/categories'
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+const COLORS = ['#00288e', '#0058be', '#1e40af', '#2170e4', '#872d00', '#ba1a1a', '#d3e4fe', '#ffdad6']
 
 function Dashboard() {
   const [metrics, setMetrics] = useState(null)
   const [dailyEvolution, setDailyEvolution] = useState([])
+  const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
+  const [dateFiltersOpen, setDateFiltersOpen] = useState(false)
   const [companyFilter, setCompanyFilter] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -260,6 +262,7 @@ function Dashboard() {
       ])
 
       setMetrics(metricsRes.data)
+      setSchedules(schedulesRes.data)
       processDailyEvolution(schedulesRes.data, companies)
     } catch (error) {
       console.error('Erro ao buscar métricas:', error)
@@ -319,7 +322,7 @@ function Dashboard() {
       displayDate: item.date.split('-').reverse().slice(0, 2).join('/') // DD/MM
     })).sort((a, b) => a.date.localeCompare(b.date))
 
-    setDailyEvolution(data)
+    setDailyEvolution(data.slice(-30))
   }
 
   const openEditModal = async (schedule) => {
@@ -464,15 +467,34 @@ function Dashboard() {
     if (normalized === 'CEARÁ' || normalized === 'CEARA') return 'CE'
     return uf
   }
-  
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    )
+
+  const formatNumber = (value) => (Number(value) || 0).toLocaleString('pt-BR')
+
+  const formatDate = (value) => {
+    if (!value) return ''
+    return value.split('-').reverse().join('/')
   }
 
+  const getCompanyName = (companyId) =>
+    companies.find((company) => String(company.id) === String(companyId))?.name || `Empresa ${companyId}`
+
+  const dateRangeLabel = () => {
+    if (startDate && endDate) return `${formatDate(startDate)} - ${formatDate(endDate)}`
+    if (startDate) return `Desde ${formatDate(startDate)}`
+    if (endDate) return `Até ${formatDate(endDate)}`
+    return 'Período: Todos'
+  }
+
+  const getStatusVisual = (categoryName) => {
+    if (categoryName === 'Perdidas') return { bg: '#ffdad6', text: '#93000a' }
+    if (categoryName === 'Indisponíveis') return { bg: '#872d00', text: '#ffffff' }
+    if (categoryName === 'Spot/Parado') return { bg: '#d3e4fe', text: '#0b1c30' }
+    if (categoryName === 'Spot disponibilizado') return { bg: '#2170e4', text: '#ffffff' }
+    if (categoryName === 'Reentrega') return { bg: '#1e40af', text: '#ffffff' }
+    if (categoryName === 'Diária') return { bg: '#d3e4fe', text: '#0b1c30' }
+    return { bg: '#00288e', text: '#ffffff' }
+  }
+  
   const totalAvailabilityVehicles = metrics?.capacity_by_company?.length
     ? metrics.capacity_by_company.reduce((sum, item) => sum + (Number(item.vehicles) || 0), 0)
     : (metrics?.total_vehicles || 0)
@@ -497,352 +519,507 @@ function Dashboard() {
 
     return totals.goal > 0 && totals.realized < totals.goal ? count + 1 : count
   }, 0)
+
+  const capacityByCompany = metrics?.capacity_by_company || []
+  const maxCompanyVehicles = Math.max(...capacityByCompany.map((item) => Number(item.vehicles) || 0), 1)
+  const companyBars = capacityByCompany.map((item, index) => ({
+    company: item.company,
+    value: formatNumber(item.vehicles),
+    width: `${Math.max(((Number(item.vehicles) || 0) / maxCompanyVehicles) * 100, item.vehicles ? 8 : 0)}%`,
+    color: COLORS[index % COLORS.length],
+  }))
+
+  const categoryDistribution = metrics?.categories_distribution || []
+  const totalStatusCount = categoryDistribution.reduce((sum, item) => sum + (Number(item.count) || 0), 0)
+  const statusCards = categoryDistribution.map((item) => {
+    const visual = getStatusVisual(item.category)
+    return {
+      label: item.category,
+      value: totalStatusCount ? `${Math.round(((Number(item.count) || 0) / totalStatusCount) * 100)}%` : '0%',
+      count: Number(item.count) || 0,
+      bg: visual.bg,
+      text: visual.text,
+      small: item.category.length > 10,
+    }
+  })
+
+  const filteredSchedulesForRegion = schedules.filter((schedule) => {
+    if (!profileFilter) return true
+    return (schedule.capacities || []).some((cap) => cap.profile_name === profileFilter)
+  })
+
+  const vehiclesByUf = filteredSchedulesForRegion.reduce((acc, schedule) => {
+    const uf = formatUf(schedule.uf || 'N/A')
+    acc[uf] = (acc[uf] || 0) + (Number(schedule.total_vehicles) || 0)
+    return acc
+  }, {})
+  const stateNames = {
+    SP: 'São Paulo',
+    RJ: 'Rio de Janeiro',
+    MG: 'Minas Gerais',
+    BA: 'Bahia',
+    PE: 'Pernambuco',
+    CE: 'Ceará',
+  }
+  const maxStateVehicles = Math.max(...Object.values(vehiclesByUf), 1)
+  const topStates = Object.entries(vehiclesByUf)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([code, value], index) => ({
+      code,
+      label: stateNames[code] || code,
+      value: formatNumber(value),
+      opacity: Math.max(0.4, 1 - index * 0.18),
+      color: '#00288e',
+    }))
+  const topState = topStates[0]
+  const topRegionShare = topState && totalAvailabilityVehicles
+    ? Math.round(((vehiclesByUf[topState.code] || 0) / totalAvailabilityVehicles) * 100)
+    : 0
+
+  const metricCards = [
+    {
+      label: 'Total Disponibilidade',
+      value: formatNumber(totalAvailabilityVehicles),
+      icon: 'inventory',
+      accentClass: 'text-[#00288e]',
+      betaText: 'Veículos',
+    },
+    {
+      label: 'Dias Abaixo Meta',
+      value: formatNumber(daysBelowGoal),
+      icon: 'warning',
+      accentClass: 'text-[#ba1a1a]',
+      betaText: 'No período',
+    },
+    {
+      label: 'Viagens Perdidas',
+      value: formatNumber(metrics?.total_lost_trips || 0),
+      icon: 'cancel',
+      accentClass: 'text-[#802a00]',
+      betaText: 'Total',
+    },
+    {
+      label: 'Agendamentos',
+      value: formatNumber(metrics?.recent_schedules?.length || 0),
+      icon: 'event_available',
+      accentClass: 'text-[#0058be]',
+      betaText: 'Recentes',
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center bg-[#f8f9ff]">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#d3e4fe] border-b-[#00288e]" />
+      </div>
+    )
+  }
   
   return (
-    <div>
-      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-500">Visão geral dos agendamentos</p>
-      </div>
-      
-      {/* Filters */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100">
+    <div className="min-h-screen overflow-x-hidden bg-[#f8f9ff] text-[#0b1c30]" style={{ fontFamily: 'Hanken Grotesk, sans-serif' }}>
+      <div className="mb-8 flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
-          <select
-            value={companyFilter}
-            onChange={(e) => setCompanyFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-          >
-            <option value="">Todas as empresas</option>
-            {companies.map(company => (
-              <option key={company.id} value={company.id}>{company.name}</option>
-            ))}
-          </select>
+          <h1 className="text-[32px] font-bold text-[#0b1c30]">Dashboard</h1>
+          <p className="mt-1 text-[16px] text-[#444653]">Visão geral dos agendamentos e métricas operacionais</p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Perfil de Transporte</label>
-          <select
-            value={profileFilter}
-            onChange={(e) => setProfileFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-          >
-            <option value="">Todos os perfis</option>
-            {profiles.map(profile => (
-              <option key={profile.name} value={profile.name}>{profile.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">UF</label>
-          <select
-            value={ufFilter}
-            onChange={(e) => setUfFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-          >
-            <option value="">Todas as UFs</option>
-            {ufs.map(uf => (
-              <option key={uf} value={uf}>{uf}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-          />
-        </div>
-      </div>
-      
-      {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Package className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Disponibilidade</p>
-              <p className="text-2xl font-bold text-gray-800">{totalAvailabilityVehicles}</p>
-            </div>
+        <div className="relative">
+          <div className="flex flex-wrap items-center gap-2 rounded-full border border-[#c4c5d5] bg-[#e5eeff] px-4 py-2">
+            <span className="material-symbols-outlined text-sm text-[#444653]">filter_alt</span>
+            <select
+              value={companyFilter}
+              onChange={(e) => setCompanyFilter(e.target.value)}
+              className="cursor-pointer border-none bg-transparent text-[14px] text-[#0b1c30] focus:ring-0"
+            >
+              <option value="">Empresa: Todas</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>Empresa: {company.name}</option>
+              ))}
+            </select>
+            <div className="hidden h-4 w-[1px] bg-[#c4c5d5] sm:block" />
+            <select
+              value={profileFilter}
+              onChange={(e) => setProfileFilter(e.target.value)}
+              className="cursor-pointer border-none bg-transparent text-[14px] text-[#0b1c30] focus:ring-0"
+            >
+              <option value="">Transporte: Todos</option>
+              {profiles.map((profile) => (
+                <option key={profile.name} value={profile.name}>Transporte: {profile.name}</option>
+              ))}
+            </select>
+            <div className="hidden h-4 w-[1px] bg-[#c4c5d5] sm:block" />
+            <select
+              value={ufFilter}
+              onChange={(e) => setUfFilter(e.target.value)}
+              className="cursor-pointer border-none bg-transparent text-[14px] text-[#0b1c30] focus:ring-0"
+            >
+              <option value="">UF: Todas</option>
+              {ufs.map((uf) => (
+                <option key={uf} value={uf}>UF: {formatUf(uf)}</option>
+              ))}
+            </select>
+            <div className="hidden h-4 w-[1px] bg-[#c4c5d5] sm:block" />
+            <button
+              type="button"
+              onClick={() => setDateFiltersOpen((open) => !open)}
+              className="flex items-center gap-2 rounded-full px-1 text-[14px] font-semibold text-[#0b1c30] hover:opacity-70"
+            >
+              <span className="material-symbols-outlined text-sm">calendar_today</span>
+              <span>{dateRangeLabel()}</span>
+            </button>
           </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Truck className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Dias abaixo meta</p>
-              <p className="text-2xl font-bold text-gray-800">{daysBelowGoal}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-red-100 rounded-lg">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Viagens Perdidas</p>
-              <p className="text-2xl font-bold text-gray-800">{metrics?.total_lost_trips || 0}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Agendamentos</p>
-              <p className="text-2xl font-bold text-gray-800">{metrics?.recent_schedules?.length || 0}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-8">
-        {/* Capacity by Company */}
-        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Disponibilidade por Empresa</h2>
-          <div className="h-64 overflow-x-auto">
-            <div className="h-full min-w-[560px] lg:min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={metrics?.capacity_by_company || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="company" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="vehicles" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-        
-        {/* Status Distribution */}
-        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Distribuição por Status</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={metrics?.categories_distribution || []}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                  outerRadius={55}
-                  fill="#8884d8"
-                  dataKey="count"
-                  nameKey="category"
+          {dateFiltersOpen && (
+            <div className="absolute right-0 top-full z-20 mt-3 w-full min-w-[320px] rounded-xl border border-[#c4c5d5] bg-white p-4 shadow-xl sm:w-auto">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#444653]">
+                  Data Inicial
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-[#c4c5d5] bg-[#f8f9ff] px-3 py-2 text-[14px] font-medium normal-case tracking-normal text-[#0b1c30] focus:border-[#00288e] focus:ring-[#00288e]"
+                  />
+                </label>
+                <label className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#444653]">
+                  Data Final
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-[#c4c5d5] bg-[#f8f9ff] px-3 py-2 text-[14px] font-medium normal-case tracking-normal text-[#0b1c30] focus:border-[#00288e] focus:ring-[#00288e]"
+                  />
+                </label>
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartDate('')
+                    setEndDate('')
+                  }}
+                  className="rounded-lg bg-[#e5eeff] px-3 py-2 text-[13px] font-bold text-[#00288e] hover:bg-[#d3e4fe]"
                 >
-                  {(metrics?.categories_distribution || []).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+                  Limpar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDateFiltersOpen(false)}
+                  className="rounded-lg bg-[#00288e] px-3 py-2 text-[13px] font-bold text-white hover:bg-[#1e40af]"
+                >
+                  Aplicar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {metricCards.map((card) => (
+          <div
+            key={card.label}
+            className="flex h-32 flex-col justify-between rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] p-6 tonal-elevation"
+          >
+            <div className="flex items-start justify-between">
+              <span className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#444653]">{card.label}</span>
+              <span className={`${card.accentClass} material-symbols-outlined`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                {card.icon}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className={`text-[32px] font-bold ${card.accentClass}`}>{card.value}</span>
+              <span className="text-[12px] font-bold text-[#444653]">{card.betaText}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-8 grid grid-cols-12 gap-6">
+        <div className="col-span-12 rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] p-6 tonal-elevation lg:col-span-7">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-[20px] font-semibold text-[#0b1c30]">Disponibilidade por Empresa</h2>
+            <span className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#00288e]">Dados reais</span>
+          </div>
+          <div className="space-y-4 pt-2">
+            {companyBars.length > 0 ? companyBars.map((bar) => (
+              <div key={bar.company} className="space-y-1">
+                <div className="flex justify-between text-[14px] font-bold text-[#0b1c30]">
+                  <span>{bar.company}</span>
+                  <span>{bar.value}</span>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-[#e5eeff]">
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: bar.width, backgroundColor: bar.color }} />
+                </div>
+              </div>
+            )) : (
+              <div className="rounded-lg border border-dashed border-[#c4c5d5] p-6 text-center text-[14px] font-semibold text-[#444653]">
+                Nenhuma disponibilidade encontrada
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="col-span-12 rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] p-6 tonal-elevation lg:col-span-5">
+          <h2 className="mb-6 text-[20px] font-semibold text-[#0b1c30]">Distribuição por Status</h2>
+          {statusCards.length > 0 ? (
+            <div className="grid h-48 w-full grid-cols-4 grid-rows-3 gap-1">
+              {statusCards.map((status) => (
+                <div
+                  key={status.label}
+                  className="flex min-h-0 flex-col justify-end rounded-lg p-2"
+                  title={`${status.label}: ${formatNumber(status.count)}`}
+                  style={{ backgroundColor: status.bg, color: status.text }}
+                >
+                  <span className={`text-[8px] font-bold uppercase opacity-80 ${status.small ? 'leading-tight' : ''}`}>
+                    {status.label}
+                  </span>
+                  <span className={`font-bold ${status.small ? 'text-xs' : ''}`}>{status.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-[#c4c5d5] text-[14px] font-semibold text-[#444653]">
+              Nenhum status encontrado
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-8 rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] p-6 tonal-elevation">
+        <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <h2 className="text-[20px] font-semibold text-[#0b1c30]">Performance por Região</h2>
+            <p className="text-[14px] text-[#444653]">Volume de veículos operacionais por estado</p>
+          </div>
+          <div className="flex items-center gap-4 rounded-lg border border-[#c4c5d5] bg-white p-3">
+            <div className="mr-2 text-[12px] font-bold text-[#444653]">LEGENDA:</div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-3 w-3 rounded-sm bg-[#d3e4fe]" />
+              <span className="text-[11px] font-bold">Baixo</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-3 w-3 rounded-sm bg-[#0058be]" />
+              <span className="text-[11px] font-bold">Médio</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-3 w-3 rounded-sm bg-[#00288e]" />
+              <span className="text-[11px] font-bold">Alto</span>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-12 items-center gap-8">
+          <div className="col-span-12 flex justify-center lg:col-span-7">
+            <svg className="h-auto w-full max-w-md" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+              <path className="map-region" fill="#d3e4fe" d="M30,100 L180,50 L250,150 L180,220 L50,180 Z" />
+              <path className="map-region" fill="#0058be" d="M260,140 L380,100 L450,220 L350,280 L280,220 Z" />
+              <path className="map-region" fill="#d3e4fe" d="M190,230 L270,230 L300,320 L230,350 L160,300 Z" />
+              <path className="map-region" fill="#00288e" d="M280,310 L340,290 L400,350 L350,420 L280,380 Z" />
+              <path className="map-region" fill="#0058be" d="M240,360 L290,390 L280,470 L210,460 Z" />
+              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="100" y="140">NORTE</text>
+              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="340" y="180">NORDESTE</text>
+              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="200" y="290">C.OESTE</text>
+              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="320" y="360">SUDESTE</text>
+              <text fill="white" fontSize="12" fontWeight="bold" pointerEvents="none" x="240" y="430">SUL</text>
+            </svg>
+          </div>
+          <div className="col-span-12 space-y-4 lg:col-span-5">
+            <div className="rounded-xl border border-[#c4c5d5] bg-[#d3e4fe]/30 p-4">
+              <h3 className="mb-3 text-[14px] font-bold text-[#00288e]">TOP ESTADOS (VEÍCULOS)</h3>
+              <div className="space-y-3">
+                {topStates.length > 0 ? topStates.map((state) => (
+                  <div key={state.code} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
+                        style={{ backgroundColor: state.color, opacity: state.opacity }}
+                      >
+                        {state.code}
+                      </div>
+                      <span className="font-bold text-[#0b1c30]">{state.label}</span>
+                    </div>
+                    <div className="flex min-w-[96px] items-center justify-end gap-3">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#e5eeff]">
+                        <div
+                          className="h-full rounded-full bg-[#00288e]"
+                          style={{ width: `${((vehiclesByUf[state.code] || 0) / maxStateVehicles) * 100}%` }}
+                        />
+                      </div>
+                      <span className="font-mono font-bold text-[#00288e]">{state.value}</span>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="py-6 text-center text-[14px] font-semibold text-[#444653]">
+                    Nenhum estado encontrado
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-lg bg-[#dde2ff]/30 p-3">
+              <span className="material-symbols-outlined text-[#0058be]">info</span>
+              <p className="text-[11px] font-medium leading-tight text-[#0b1c30]">
+                {topState
+                  ? `${topState.label} concentra ${topRegionShare}% do volume filtrado de veículos.`
+                  : 'Aguardando dados regionais para calcular a concentração de veículos.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-8 rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] p-6 tonal-elevation">
+        <div className="mb-8 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+          <div>
+            <h2 className="text-[20px] font-semibold text-[#0b1c30]">Evolução Diária: Realizado vs. Meta (Veículos)</h2>
+            <p className="text-[14px] text-[#444653]">Performance de carregamento no período filtrado</p>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-4 rounded bg-[#00288e]" />
+              <span className="text-[14px]">Realizado</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded-full border-2 border-dashed border-[#ba1a1a]" />
+              <span className="text-[14px]">Meta</span>
+            </div>
+          </div>
+        </div>
+        <div className="h-80 overflow-x-auto">
+          <div className="h-full min-w-0 sm:min-w-[720px] lg:min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={dailyEvolution}>
+                <CartesianGrid stroke="#d3e4fe" strokeDasharray="3 3" />
+                <XAxis dataKey="displayDate" stroke="#444653" />
+                <YAxis stroke="#444653" />
                 <Tooltip />
-                <Legend />
-              </PieChart>
+                {companyFilter ? (
+                  <>
+                    <Bar dataKey="realizado" fill="#00288e" name="Realizado" barSize={20} radius={[4, 4, 0, 0]} />
+                    <Line type="monotone" dataKey="meta" stroke="#ba1a1a" name="Meta Diária" strokeWidth={3} dot={false} strokeDasharray="5 5" />
+                  </>
+                ) : (
+                  <>
+                    {companies.map((company, index) => (
+                      <Bar key={company.id} dataKey={company.name} fill={COLORS[index % COLORS.length]} name={company.name} radius={[4, 4, 0, 0]} barSize={20} />
+                    ))}
+                    {companies.map((company, index) => (
+                      <Line
+                        key={`meta-${company.id}`}
+                        type="monotone"
+                        dataKey={`meta_${company.name}`}
+                        stroke={COLORS[index % COLORS.length]}
+                        name={`Meta ${company.name}`}
+                        strokeWidth={2}
+                        dot={false}
+                        strokeDasharray="5 5"
+                        legendType="none"
+                      />
+                    ))}
+                  </>
+                )}
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
-      
-      {/* New Chart Row */}
-      <div className="grid grid-cols-1 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Evolução Diária: Realizado vs. Meta (Veículos)</h2>
-          <div className="h-80 overflow-x-auto">
-            <div className="h-full min-w-[720px] lg:min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={dailyEvolution}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="displayDate" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  {companyFilter ? (
-                    <>
-                      <Bar dataKey="realizado" fill="#3b82f6" name="Realizado" barSize={20} radius={[4, 4, 0, 0]} />
-                      <Line type="monotone" dataKey="meta" stroke="#10b981" name="Meta Diária" strokeWidth={3} dot={false} legendType="none" />
-                    </>
-                  ) : (
-                    <>
-                      {companies.map((company, index) => (
-                        <Bar key={company.id} dataKey={company.name} fill={COLORS[index % COLORS.length]} name={company.name} radius={[4, 4, 0, 0]} barSize={20} />
-                      ))}
-                      {companies.map((company, index) => (
-                          <Line 
-                              key={`meta-${company.id}`} 
-                              type="monotone" 
-                              dataKey={`meta_${company.name}`} 
-                              stroke={COLORS[index % COLORS.length]} 
-                              name={`Meta ${company.name}`} 
-                              strokeWidth={2} 
-                              dot={false} 
-                              strokeDasharray="5 5"
-                              legendType="none"
-                          />
-                      ))}
-                    </>
-                  )}
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+
+      <div className="overflow-hidden rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] tonal-elevation">
+        <div className="flex flex-col gap-3 border-b border-[#c4c5d5] p-6 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-[20px] font-semibold text-[#0b1c30]">Agendamentos Recentes</h2>
+          <span className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#444653]">
+            {formatNumber(metrics?.recent_schedules?.length || 0)} registros
+          </span>
         </div>
-      </div>
-      
-      {/* Recent Schedules */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-4 sm:p-6 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800">Agendamentos Recentes</h2>
-        </div>
-        <div className="px-4 pt-3 text-xs text-gray-500 sm:hidden">Arraste a tabela para o lado para ver todos os dados.</div>
+        <div className="px-4 pt-3 text-xs text-[#444653] sm:hidden">Arraste a tabela para o lado para ver todos os dados.</div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] sm:min-w-[860px]">
+          <table className="w-full min-w-[860px] text-left zebra-table">
             <thead>
-              <tr>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UF</th>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veículos</th>
-                <th className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponibilidade</th>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              <tr className="border-b border-[#c4c5d5] bg-[#eff4ff] text-[11px] font-bold uppercase tracking-[0.16em] text-[#444653]">
+                <th className="px-6 py-4">Data</th>
+                <th className="px-6 py-4">Empresa</th>
+                <th className="px-6 py-4">UF</th>
+                <th className="px-6 py-4">Veículos</th>
+                <th className="px-6 py-4">Disponibilidade</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-[#c4c5d5]/30 text-[14px]">
               {metrics?.recent_schedules?.map((schedule, rowIndex) => (
-                <tr key={schedule.id} className="hover:bg-gray-50">
-                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-800">
-                      {schedule.schedule_date.split('-').reverse().join('/')}
-                      {schedule.updated_at && (
-                        <div className="hidden sm:block text-xs text-gray-400">Atualizado em: {new Date(schedule.updated_at).toLocaleDateString('pt-BR')}</div>
-                      )}
+                <tr key={schedule.id}>
+                  <td className="px-6 py-4 font-bold">
+                    {formatDate(schedule.schedule_date)}
+                    {schedule.updated_at && (
+                      <div className="text-xs font-normal text-[#444653]/70">Atualizado em: {new Date(schedule.updated_at).toLocaleDateString('pt-BR')}</div>
+                    )}
                   </td>
-                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-800">
-                    {companies.find(c => c.id === schedule.company_id)?.name || `Empresa ${schedule.company_id}`}
-                  </td>
-                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-800">
-                    {formatUf(schedule.uf)}
-                  </td>
-                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
-                    {schedule.total_vehicles}
-                  </td>
-                  <td className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
-                    {formatKgFull(schedule.total_capacity_kg)} kg
-                  </td>
-                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-6 py-4">{getCompanyName(schedule.company_id)}</td>
+                  <td className="px-6 py-4">{formatUf(schedule.uf)}</td>
+                  <td className="px-6 py-4 font-mono text-[#00288e]">{formatNumber(schedule.total_vehicles)}</td>
+                  <td className="px-6 py-4 font-mono text-[#00288e]">{formatKgFull(schedule.total_capacity_kg)} kg</td>
+                  <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
-                      {schedule.categories.map((cat) => (
-                        <span 
-                          key={cat.id}
-                          tabIndex={0}
-                          className={`group relative cursor-help focus:outline-none focus:ring-2 focus:ring-primary-500 px-2 py-1 rounded-full text-xs ${
-                            cat.category_name === 'Perdidas' 
-                              ? 'bg-red-100 text-red-700' 
-                              : cat.category_name === 'Indisponíveis'
-                              ? 'bg-amber-100 text-[#f59e0b]'
-                              : cat.category_name === 'Spot/Parado'
-                              ? 'bg-gray-100 text-gray-700'
-                              : cat.category_name === 'Spot disponibilizado'
-                              ? 'bg-gray-100 text-gray-700'                              
-                              : 'bg-blue-100 text-blue-700'
-                          }`}
-                        >
-                          {cat.category_name}: {cat.count}
-                          
-                          {/* Tooltip para Indisponíveis */}
-                          {cat.category_name === 'Indisponíveis' && cat.lost_plates && cat.lost_plates.length > 0 && (
-                            <div className={`hidden group-hover:block group-focus:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 ${
-                              rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
-                            }`}>
-                              {rowIndex === 0 ? (
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -mb-1 border-4 border-transparent border-b-white"></div>
-                              ) : (
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-white"></div>
-                              )}
-                              <p className="font-semibold text-gray-700 mb-2 border-b pb-1 text-left">Motivos ({cat.count})</p>
-                              <div className="max-h-48 overflow-y-auto">
-                                {cat.lost_plates.map((plate, idx) => (
-                                  <div key={idx} className="text-left mb-1 last:mb-0 text-xs leading-tight">
-                                    <span className="font-bold text-gray-800">{plate.plate_number || 'S/ Placa'}</span>: <span className="text-gray-600 italic">{plate.reason}</span>
-                                  </div>
-                                ))}
+                      {schedule.categories.map((cat) => {
+                        const visual = getStatusVisual(cat.category_name)
+                        return (
+                          <span
+                            key={cat.id}
+                            tabIndex={0}
+                            className="group relative cursor-help rounded-full px-2.5 py-0.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#00288e]"
+                            style={{ backgroundColor: visual.bg, color: visual.text }}
+                          >
+                            {cat.category_name}: {cat.count}
+                            {cat.category_name === 'Indisponíveis' && cat.lost_plates && cat.lost_plates.length > 0 && (
+                              <div className={`absolute left-1/2 z-50 hidden w-64 -translate-x-1/2 rounded-lg border border-[#c4c5d5] bg-white p-3 text-[#0b1c30] shadow-xl group-hover:block group-focus:block ${
+                                rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
+                              }`}>
+                                <p className="mb-2 border-b pb-1 text-left font-semibold text-[#0b1c30]">Motivos ({cat.count})</p>
+                                <div className="max-h-48 overflow-y-auto">
+                                  {cat.lost_plates.map((plate, idx) => (
+                                    <div key={idx} className="mb-1 text-left text-xs leading-tight last:mb-0">
+                                      <span className="font-bold">{plate.plate_number || 'S/ Placa'}</span>: <span className="italic text-[#444653]">{plate.reason}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Tooltip para Perdidas */}
-                          {cat.category_name === 'Perdidas' && (
-                            <div className={`hidden group-hover:block group-focus:block absolute left-1/2 transform -translate-x-1/2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-50 whitespace-normal ${
-                              rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
-                            }`}>
-                              {rowIndex === 0 ? (
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -mb-1 border-4 border-transparent border-b-white"></div>
-                              ) : (
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-white"></div>
-                              )}
-                              <div className="text-left text-xs">
-                                <p><span className="font-bold">Perfil:</span> {cat.profile_name || 'N/A'}</p>
-                                <p><span className="font-bold">Qtd:</span> {cat.count}</p>
-                                <p><span className="font-bold">Placa:</span> {cat.lost_plates?.[0]?.plate_number || 'N/A'}</p>
-                                <p><span className="font-bold">Motivo:</span> {cat.lost_plates?.[0]?.reason || 'N/A'}</p>
+                            )}
+                            {cat.category_name === 'Perdidas' && (
+                              <div className={`absolute left-1/2 z-50 hidden w-64 -translate-x-1/2 whitespace-normal rounded-lg border border-[#c4c5d5] bg-white p-3 text-[#0b1c30] shadow-xl group-hover:block group-focus:block ${
+                                rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
+                              }`}>
+                                <div className="text-left text-xs">
+                                  <p><span className="font-bold">Perfil:</span> {cat.profile_name || 'N/A'}</p>
+                                  <p><span className="font-bold">Qtd:</span> {cat.count}</p>
+                                  <p><span className="font-bold">Placa:</span> {cat.lost_plates?.[0]?.plate_number || 'N/A'}</p>
+                                  <p><span className="font-bold">Motivo:</span> {cat.lost_plates?.[0]?.reason || 'N/A'}</p>
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </span>
-                      ))}
+                            )}
+                          </span>
+                        )
+                      })}
                     </div>
                   </td>
-                  <td className="hidden sm:table-cell px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-6 py-4 text-right">
                     {isAdmin && (
                       <button
+                        type="button"
                         onClick={() => openEditModal(schedule)}
-                        className="px-3 py-1 bg-primary-600 text-white rounded text-sm"
+                        className="rounded-lg p-2 text-[#00288e] transition-colors hover:bg-[#00288e]/10"
+                        aria-label="Editar agendamento"
                       >
-                        Editar
+                        <span className="material-symbols-outlined text-lg">edit</span>
                       </button>
                     )}
                   </td>
                 </tr>
               ))}
               {(!metrics?.recent_schedules || metrics.recent_schedules.length === 0) && (
-                <>
-                  <tr className="sm:hidden">
-                    <td colSpan="5" className="px-2 py-8 text-center text-gray-500">
-                      Nenhum agendamento encontrado
-                    </td>
-                  </tr>
-                  <tr className="hidden sm:table-row">
-                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                      Nenhum agendamento encontrado
-                    </td>
-                  </tr>
-                </>
+                <tr>
+                  <td colSpan="7" className="px-6 py-8 text-center text-[#444653]">
+                    Nenhum agendamento encontrado
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
