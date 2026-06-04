@@ -28,7 +28,7 @@ const COLORS = {
 }
 
 const cardShadow = '0px 4px 12px rgba(30,64,175,0.05)'
-const chartBars = ['30%', '50%', '45%', '70%', '60%', '90%', '80%']
+const weekdayLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
 
 function MaterialIcon({ children, className = '', fill = false, style = {} }) {
   return (
@@ -383,6 +383,19 @@ function ScheduleList() {
   )
   const successRate = totalVehicles > 0 ? Math.max(0, Math.round(((totalVehicles - lostCount) / totalVehicles) * 1000) / 10) : 0
   const averageCapacity = schedules.length > 0 ? Math.round(totalCapacity / schedules.length) : 0
+  const dailyVehicleVolume = weekdayLabels.map((label, index) => {
+    const daySchedules = schedules.filter((schedule) => {
+      if (!schedule.schedule_date) return false
+      const date = new Date(`${schedule.schedule_date}T00:00:00`)
+      const mondayFirstDay = (date.getDay() + 6) % 7
+      return mondayFirstDay === index
+    })
+    return {
+      label,
+      value: daySchedules.reduce((sum, schedule) => sum + (schedule.total_vehicles || 0), 0),
+    }
+  })
+  const maxDailyVehicleVolume = Math.max(...dailyVehicleVolume.map((item) => item.value), 1)
 
   const kpiCards = [
     {
@@ -395,6 +408,7 @@ function ScheduleList() {
       trendColor: COLORS.onSecondaryFixedVariant,
       fill: '75%',
       barColor: COLORS.primary,
+      info: 'Quantidade de registros retornados pela API de agendamentos com os filtros atuais aplicados.',
     },
     {
       label: 'Taxa de Sucesso',
@@ -407,6 +421,7 @@ function ScheduleList() {
       trendColor: COLORS.outline,
       fill: `${Math.min(100, successRate)}%`,
       barColor: COLORS.secondary,
+      info: 'Percentual estimado de veículos sem status Perdidas: (total de veículos - viagens perdidas) dividido pelo total de veículos.',
     },
     {
       label: 'Volume Total (kg)',
@@ -418,6 +433,7 @@ function ScheduleList() {
       trendColor: COLORS.onSecondaryFixedVariant,
       fill: '60%',
       barColor: COLORS.tertiary,
+      info: 'Soma de total_capacity_kg de todos os agendamentos carregados na página.',
     },
     {
       label: 'Custo Médio',
@@ -429,6 +445,7 @@ function ScheduleList() {
       trendColor: COLORS.error,
       fill: '40%',
       barColor: COLORS.error,
+      info: 'Média simples de disponibilidade por agendamento: volume total em kg dividido pelo número de registros.',
     },
   ]
 
@@ -658,9 +675,18 @@ function ScheduleList() {
           {kpiCards.map((card) => (
             <div
               key={card.label}
-              className="rounded-[0.5rem] border p-5 flex flex-col gap-2"
+              className="group relative rounded-[0.5rem] border p-5 flex flex-col gap-2"
               style={{ backgroundColor: COLORS.surfaceContainerLowest, borderColor: COLORS.outlineVariant, boxShadow: cardShadow }}
             >
+              <div
+                className="pointer-events-none absolute left-5 right-5 top-4 z-20 translate-y-1 rounded-[0.5rem] border p-3 text-[12px] leading-4 opacity-0 shadow-lg transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100"
+                style={{ backgroundColor: COLORS.surfaceContainerLowest, borderColor: COLORS.outlineVariant, color: COLORS.onSurfaceVariant }}
+              >
+                <span className="mb-1 block font-semibold" style={{ color: COLORS.onSurface }}>
+                  Como interpretar
+                </span>
+                {card.info}
+              </div>
               <div className="flex justify-between items-start">
                 <p className="text-[12px] leading-4 font-semibold uppercase tracking-wider" style={{ color: COLORS.onSurfaceVariant }}>
                   {card.label}
@@ -691,9 +717,14 @@ function ScheduleList() {
             style={{ backgroundColor: COLORS.surfaceContainerLowest, borderColor: COLORS.outlineVariant, boxShadow: cardShadow }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[20px] leading-7 font-semibold" style={{ color: COLORS.onSurface }}>
-                Volume Diário
-              </h3>
+              <div>
+                <h3 className="text-[20px] leading-7 font-semibold" style={{ color: COLORS.onSurface }}>
+                  Volume Diário de Veículos
+                </h3>
+                <p className="text-[14px] leading-5" style={{ color: COLORS.onSurfaceVariant }}>
+                  Total de veículos agendados por dia da semana
+                </p>
+              </div>
               <button type="button" style={{ color: COLORS.onSurfaceVariant }}>
                 <MaterialIcon>more_vert</MaterialIcon>
               </button>
@@ -704,23 +735,31 @@ function ScheduleList() {
                 style={{ backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 39px, ${COLORS.outline} 40px)`, backgroundSize: '100% 40px' }}
               />
               <div className="absolute bottom-0 left-0 flex h-1/2 w-full items-end justify-between px-2">
-                {chartBars.map((height, index) => (
+                {dailyVehicleVolume.map((day) => (
                   <div
-                    key={`${height}-${index}`}
-                    className="w-[8%] rounded-t-sm border-t-2"
-                    style={{ height, backgroundColor: 'rgba(0,40,142,0.2)', borderColor: COLORS.primary }}
-                  />
+                    key={day.label}
+                    className="group/bar relative w-[8%] rounded-t-sm border-t-2 transition-colors hover:bg-[rgba(0,40,142,0.32)]"
+                    style={{
+                      height: `${Math.max(8, Math.round((day.value / maxDailyVehicleVolume) * 90))}%`,
+                      backgroundColor: 'rgba(0,40,142,0.2)',
+                      borderColor: COLORS.primary,
+                    }}
+                  >
+                    <div
+                      className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max -translate-x-1/2 translate-y-1 rounded-[0.5rem] border px-3 py-2 text-center text-[12px] leading-4 opacity-0 shadow-lg transition-all duration-150 group-hover/bar:translate-y-0 group-hover/bar:opacity-100"
+                      style={{ backgroundColor: COLORS.surfaceContainerLowest, borderColor: COLORS.outlineVariant, color: COLORS.onSurface }}
+                    >
+                      <span className="block font-semibold">{day.label}</span>
+                      <span style={{ color: COLORS.onSurfaceVariant }}>{day.value.toLocaleString('pt-BR')} veículos</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
             <div className="mt-2 flex justify-between px-2 text-[12px] leading-4 font-semibold" style={{ color: COLORS.outline }}>
-              <span>Seg</span>
-              <span>Ter</span>
-              <span>Qua</span>
-              <span>Qui</span>
-              <span>Sex</span>
-              <span>Sab</span>
-              <span>Dom</span>
+              {dailyVehicleVolume.map((day) => (
+                <span key={day.label}>{day.label}</span>
+              ))}
             </div>
           </div>
 
