@@ -13,6 +13,22 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    role: str = "collab"
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    role: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ScheduleCategoryCreate(BaseModel):
     category_name: str
     count: int

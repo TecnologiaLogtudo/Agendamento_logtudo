@@ -24,6 +24,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
 
+def hash_password(plain_password: str) -> str:
+    """Gera um hash bcrypt para a senha em texto plano."""
+    return bcrypt.hashpw(plain_password.encode(), bcrypt.gensalt()).decode()
+
+
 async def get_user_by_username(username: str, session: AsyncSession) -> User | None:
     """Busca um usuário pelo username no banco de dados."""
     result = await session.execute(select(User).where(User.username == username))

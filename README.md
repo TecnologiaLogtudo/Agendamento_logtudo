@@ -73,12 +73,14 @@ npm run dev
 ## 📋 Funcionalidades
 
 ### 1. Dashboard
+
 - **Métricas principais**: Total de capacidade (kg), veículos, viagens perdidas
 - **Gráfico de barras**: Capacidade por empresa
 - **Gráfico de pizza**: Distribuição por status
 - **Lista de agendamentos recentes**
 
 ### 2. Novo Agendamento
+
 - **Seleção de empresa**: 3 Corações, Itambé, DPA
 - **Data do agendamento**: Padrão para o dia seguinte
 - **Status**:
@@ -96,6 +98,7 @@ npm run dev
 - **Cálculo automático de capacidade total**
 
 ### 3. Histórico
+
 - **Listagem de agendamentos** com filtros
 - **Exportação para Excel** (.xlsx)
 - **Resumo de totais**
@@ -124,19 +127,20 @@ logisched/
 
 ## 🔧 API Endpoints
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/api/companies` | Listar empresas |
-| GET | `/api/categories` | Listar status |
-| GET | `/api/profiles` | Listar perfis de veículos (aceita opcional `company_id` para filtrar por empresa) |
-| POST | `/api/schedules` | Criar agendamento |
-| GET | `/api/schedules` | Listar agendamentos |
-| GET | `/api/dashboard/metrics` | Métricas do dashboard |
-| GET | `/api/schedules/export` | Exportar para Excel |
+| Método | Endpoint                   | Descrição                                                                         |
+| ------- | -------------------------- | ----------------------------------------------------------------------------------- |
+| GET     | `/api/companies`         | Listar empresas                                                                     |
+| GET     | `/api/categories`        | Listar status                                                                       |
+| GET     | `/api/profiles`          | Listar perfis de veículos (aceita opcional`company_id` para filtrar por empresa) |
+| POST    | `/api/schedules`         | Criar agendamento                                                                   |
+| GET     | `/api/schedules`         | Listar agendamentos                                                                 |
+| GET     | `/api/dashboard/metrics` | Métricas do dashboard                                                              |
+| GET     | `/api/schedules/export`  | Exportar para Excel                                                                 |
 
 ## 🐳 Variáveis de Ambiente
 
 ### Backend
+
 ```
 DATABASE_URL=postgresql+asyncpg://user:pass@db:5432/logisched
 POSTGRES_HOST=db
@@ -147,6 +151,7 @@ POSTGRES_DB=logisched
 ```
 
 ### Frontend
+
 ```
 VITE_API_URL=http://localhost:8000
 ```
@@ -154,11 +159,11 @@ VITE_API_URL=http://localhost:8000
 ## 📦 Perfis de Carga
 
 | Perfil | Capacidade |
-|--------|-----------|
-| HR | 1.500 kg |
-| 3/4 | 3.500 kg |
-| Toco | 7.000 kg |
-| Truck | 14.000 kg |
+| ------ | ---------- |
+| HR     | 1.500 kg   |
+| 3/4    | 3.500 kg   |
+| Toco   | 7.000 kg   |
+| Truck  | 14.000 kg  |
 
 ## 🛠️ Tecnologias
 

@@ -15,11 +15,13 @@ function AdminSettings() {
     }
   }, [authToken])
   const [companies, setCompanies] = useState([])
+  const [users, setUsers] = useState([])
   const [ufs, setUfs] = useState([])
   const [categories, setCategories] = useState([])
   const [profiles, setProfiles] = useState([])
 
   const [newCompany, setNewCompany] = useState({ name: '', vehicle_goal: 0 })
+  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'collab' })
   const [newUfName, setNewUfName] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newProfile, setNewProfile] = useState({ name: '', weight: 0, spot: false, company_ids: [] })
@@ -47,13 +49,15 @@ function AdminSettings() {
   const fetchAll = async () => {
     setError(null)
     try {
-      const [compRes, ufsRes, catRes, profRes] = await Promise.all([
+      const [compRes, usersRes, ufsRes, catRes, profRes] = await Promise.all([
         axios.get('/api/companies'),
+        axios.get('/api/admin/users'),
         axios.get('/api/admin/ufs'),
         axios.get('/api/admin/categories'),
         axios.get('/api/admin/profiles')
       ])
       setCompanies(compRes.data)
+      setUsers(usersRes.data)
       setUfs(ufsRes.data)
       setCategories(catRes.data)
       setProfiles(profRes.data)
@@ -71,6 +75,17 @@ function AdminSettings() {
       setSuccess('Empresa adicionada')
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao adicionar empresa')
+    }
+  }
+
+  const handleAddUser = async () => {
+    try {
+      await axios.post('/api/admin/users', newUser)
+      setNewUser({ username: '', password: '', role: 'collab' })
+      fetchAll()
+      setSuccess('Usuário adicionado')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao adicionar usuário')
     }
   }
 
@@ -166,6 +181,43 @@ function AdminSettings() {
       </div>
       {error && <div className="mb-4 text-red-600">{error}</div>}
       {success && <div className="mb-4 text-green-600">{success}</div>}
+
+      <section className="mb-8 p-4 border rounded-lg">
+        <h2 className="text-xl font-semibold mb-4">Usuários</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+          <input
+            className="border px-2 py-2 md:py-1 rounded"
+            value={newUser.username}
+            onChange={e => setNewUser({ ...newUser, username: e.target.value })}
+            placeholder="Nome de usuário"
+          />
+          <input
+            className="border px-2 py-2 md:py-1 rounded"
+            value={newUser.password}
+            onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+            placeholder="Senha"
+            type="password"
+          />
+          <select
+            className="border px-2 py-2 md:py-1 rounded"
+            value={newUser.role}
+            onChange={e => setNewUser({ ...newUser, role: e.target.value })}
+          >
+            <option value="collab">Colaborador</option>
+            <option value="admin">Administrador</option>
+          </select>
+          <button onClick={handleAddUser} className="px-3 py-2 bg-primary-600 text-white rounded md:col-span-3">
+            <Plus className="w-4 h-4 inline mr-1" /> Adicionar usuário
+          </button>
+        </div>
+        <ul>
+          {users.map(user => (
+            <li key={user.id} className="flex justify-between p-2 border-b md:border-none">
+              <span>{user.username} <span className="text-sm text-gray-600">({user.role === 'admin' ? 'Admin' : 'Colaborador'})</span></span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold">Empresas</h2>

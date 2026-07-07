@@ -5,17 +5,52 @@ from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
-from ..auth import verify_admin
+from ..auth import verify_admin, hash_password
 from ..database import async_session
-from ..models import Uf, Category, CapacityProfile, Company, CapacityProfileCompany
+from ..models import Uf, Category, CapacityProfile, Company, CapacityProfileCompany, User
 from ..schemas import (
     UfCreate, UfResponse,
     CategoryCreate, CategoryResponse,
     CapacityProfileCreate, CapacityProfileResponse,
-    CompanyResponse
+    CompanyResponse, UserCreate, UserResponse
 )
 
 router = APIRouter()
+
+# --- Users ---
+@router.get("/admin/users", response_model=List[UserResponse])
+async def list_users(authorized: bool = Depends(verify_admin)):
+    async with async_session() as session:
+        result = await session.execute(select(User).order_by(User.username))
+        return result.scalars().all()
+
+
+@router.post("/admin/users", response_model=UserResponse)
+async def create_user(payload: UserCreate, authorized: bool = Depends(verify_admin)):
+    username = payload.username.strip()
+    password = payload.password.strip()
+    role = payload.role.strip().lower()
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Nome de usuário e senha são obrigatórios")
+    if role not in {"admin", "collab"}:
+        raise HTTPException(status_code=400, detail="Função inválida. Use 'admin' ou 'collab'")
+
+    async with async_session() as session:
+        existing = await session.execute(select(User).where(User.username == username))
+        if existing.scalars().first():
+            raise HTTPException(status_code=400, detail="Usuário já existe")
+
+        new_user = User(username=username, password=hash_password(password), role=role)
+        session.add(new_user)
+        try:
+            await session.commit()
+            await session.refresh(new_user)
+            return new_user
+        except IntegrityError:
+            await session.rollback()
+            raise HTTPException(status_code=400, detail="Erro ao criar usuário")
+
 
 # --- UFs ---
 @router.get("/admin/ufs", response_model=List[UfResponse])
