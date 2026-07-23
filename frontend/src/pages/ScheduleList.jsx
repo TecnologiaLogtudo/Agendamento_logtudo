@@ -74,6 +74,8 @@ function ScheduleList() {
   const [companies, setCompanies] = useState([])
   const [ufs, setUfs] = useState([])
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
   const [editingSchedule, setEditingSchedule] = useState(null)
   const [editCompanyId, setEditCompanyId] = useState('')
   const [editUf, setEditUf] = useState('')
@@ -261,6 +263,10 @@ function ScheduleList() {
     loadInitialData()
   }, [])
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [companyFilter, ufFilter, startDate, endDate, searchQuery])
+
   const fetchSchedules = async (filters = {}) => {
     try {
       setLoading(true)
@@ -364,6 +370,22 @@ function ScheduleList() {
   const getPrimaryCapacity = (schedule) =>
     (schedule.capacities || []).find((cap) => cap.vehicle_count > 0) || schedule.capacities?.[0]
 
+  const openViewModal = (schedule) => {
+    setEditingSchedule(schedule)
+    setViewModalOpen(true)
+  }
+
+  const getVehicleTypeLabel = (schedule) => {
+    const capacitiesWithVehicles = (schedule.capacities || []).filter((cap) => cap.vehicle_count > 0)
+    if (capacitiesWithVehicles.length === 0) {
+      return '-'
+    }
+    if (capacitiesWithVehicles.length === 1) {
+      return capacitiesWithVehicles[0].profile_name
+    }
+    return 'Vários'
+  }
+
   const getDominantStatus = (schedule) => {
     const categories = schedule.categories || []
     const dominant = categories.reduce((best, category) => {
@@ -391,6 +413,51 @@ function ScheduleList() {
     ].join(' ').toLowerCase()
     return haystack.includes(searchQuery.trim().toLowerCase())
   })
+
+  const uniqueDates = Array.from(new Set(filteredSchedules.map((s) => s.schedule_date)))
+    .sort((a, b) => new Date(b) - new Date(a))
+
+  const DAYS_PER_PAGE = 5
+  const totalPages = Math.ceil(uniqueDates.length / DAYS_PER_PAGE)
+
+  const datesOnPage = uniqueDates.slice((currentPage - 1) * DAYS_PER_PAGE, currentPage * DAYS_PER_PAGE)
+  const schedulesOnPage = filteredSchedules.filter((s) => datesOnPage.includes(s.schedule_date))
+
+  const renderPageButtons = () => {
+    const buttons = []
+    const range = 2
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage - range && i <= currentPage + range)) {
+        buttons.push(i)
+      } else if (buttons[buttons.length - 1] !== '...') {
+        buttons.push('...')
+      }
+    }
+    return buttons.map((page, index) => {
+      if (page === '...') {
+        return (
+          <span key={`dots-${index}`} className="px-2" style={{ color: COLORS.outline }}>
+            ...
+          </span>
+        )
+      }
+      const isActive = page === currentPage
+      return (
+        <button
+          key={page}
+          className="flex h-8 w-8 items-center justify-center rounded text-[12px] leading-4 font-semibold transition-colors"
+          type="button"
+          onClick={() => setCurrentPage(page)}
+          style={{
+            backgroundColor: isActive ? COLORS.primary : 'transparent',
+            color: isActive ? COLORS.onPrimary : COLORS.onSurface,
+          }}
+        >
+          {page}
+        </button>
+      )
+    })
+  }
 
   const totalVehicles = schedules.reduce((sum, schedule) => sum + (schedule.total_vehicles || 0), 0)
   const totalCapacity = schedules.reduce((sum, schedule) => sum + (schedule.total_capacity_kg || 0), 0)
@@ -885,7 +952,7 @@ function ScheduleList() {
               <table className="w-full min-w-[900px] border-collapse text-left">
                 <thead>
                   <tr className="border-b" style={{ backgroundColor: COLORS.surfaceContainerLow, borderColor: COLORS.outlineVariant }}>
-                    {['', 'Data/Hora', 'Empresa', 'UF', 'Tipo Veículo', 'Peso (kg)', 'Status', 'Ações'].map((heading, index) => (
+                    {['', 'Data/Hora', 'Empresa', 'UF', 'Tipo Veículo', 'Quantidade', 'Status', 'Ações'].map((heading, index) => (
                       <th
                         key={heading || 'select'}
                         className={`p-3 text-[12px] leading-4 font-semibold ${index === 0 ? 'w-12 text-center' : ''} ${index === 5 || index === 7 ? 'text-right' : ''} ${index === 6 ? 'text-center' : ''}`}
@@ -897,8 +964,7 @@ function ScheduleList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSchedules.map((schedule, rowIndex) => {
-                    const capacity = getPrimaryCapacity(schedule)
+                  {schedulesOnPage.map((schedule, rowIndex) => {
                     const status = statusStyle(getDominantStatus(schedule))
                     return (
                       <tr
@@ -919,10 +985,10 @@ function ScheduleList() {
                           {formatUf(schedule.uf)}
                         </td>
                         <td className="p-3 text-[14px] leading-5 font-normal" style={{ color: COLORS.onSurfaceVariant }}>
-                          {capacity?.profile_name || '-'}
+                          {getVehicleTypeLabel(schedule)}
                         </td>
                         <td className="p-3 text-right font-mono text-[14px] leading-5 font-medium" style={{ color: COLORS.onSurface }}>
-                          {formatKg(schedule.total_capacity_kg)}
+                          {schedule.total_vehicles}
                         </td>
                         <td className="p-3 text-center">
                           <span className="inline-flex items-center rounded-[0.75rem] px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: status.bg, color: status.color }}>
@@ -930,7 +996,13 @@ function ScheduleList() {
                           </span>
                         </td>
                         <td className="p-3 text-right">
-                          <button className="rounded p-1 transition-colors hover:bg-[#e5eeff]" title="Detalhes" type="button" style={{ color: COLORS.primary }}>
+                          <button
+                            className="rounded p-1 transition-colors hover:bg-[#e5eeff]"
+                            title="Detalhes"
+                            type="button"
+                            onClick={() => openViewModal(schedule)}
+                            style={{ color: COLORS.primary }}
+                          >
                             <MaterialIcon className="text-[20px]">visibility</MaterialIcon>
                           </button>
                           {isAdmin && (
@@ -958,24 +1030,37 @@ function ScheduleList() {
             style={{ backgroundColor: COLORS.surfaceBright, borderColor: COLORS.outlineVariant }}
           >
             <p className="text-[14px] leading-5 font-normal" style={{ color: COLORS.onSurfaceVariant }}>
-              Mostrando <span className="font-bold" style={{ color: COLORS.onSurface }}>1-{filteredSchedules.length}</span> de{' '}
-              <span className="font-bold" style={{ color: COLORS.onSurface }}>{schedules.length}</span> registros
+              Mostrando <span className="font-bold" style={{ color: COLORS.onSurface }}>
+                {schedulesOnPage.length > 0 ? (currentPage - 1) * 5 + 1 : 0}-
+                {Math.min(filteredSchedules.length, (currentPage - 1) * 5 + schedulesOnPage.length)}
+              </span> de{' '}
+              <span className="font-bold" style={{ color: COLORS.onSurface }}>{filteredSchedules.length}</span> registros
+              {uniqueDates.length > 0 && (
+                <span className="text-[12px] ml-2 text-gray-500">
+                  (Página {currentPage} de {totalPages} | total {uniqueDates.length} dias)
+                </span>
+              )}
             </p>
             <div className="flex items-center gap-1">
-              <button className="rounded p-1 opacity-50" type="button" disabled style={{ color: COLORS.outline }}>
+              <button
+                className={`rounded p-1 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'transition-colors hover:bg-[#e5eeff] hover:text-[#00288e]'}`}
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                style={{ color: COLORS.outline }}
+              >
                 <MaterialIcon>chevron_left</MaterialIcon>
               </button>
-              <button className="flex h-8 w-8 items-center justify-center rounded text-[12px] leading-4 font-semibold" type="button" style={{ backgroundColor: COLORS.primary, color: COLORS.onPrimary }}>
-                1
-              </button>
-              <button className="flex h-8 w-8 items-center justify-center rounded text-[12px] leading-4 font-semibold transition-colors hover:bg-[#e5eeff]" type="button">
-                2
-              </button>
-              <button className="flex h-8 w-8 items-center justify-center rounded text-[12px] leading-4 font-semibold transition-colors hover:bg-[#e5eeff]" type="button">
-                3
-              </button>
-              <span className="px-2" style={{ color: COLORS.outline }}>...</span>
-              <button className="rounded p-1 transition-colors hover:bg-[#e5eeff] hover:text-[#00288e]" type="button" style={{ color: COLORS.outline }}>
+              
+              {renderPageButtons()}
+              
+              <button
+                className={`rounded p-1 ${currentPage === totalPages || totalPages === 0 ? 'opacity-50 cursor-not-allowed' : 'transition-colors hover:bg-[#e5eeff] hover:text-[#00288e]'}`}
+                type="button"
+                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                style={{ color: COLORS.outline }}
+              >
                 <MaterialIcon>chevron_right</MaterialIcon>
               </button>
             </div>
@@ -1083,6 +1168,98 @@ function ScheduleList() {
               <button onClick={closeEditModal} className="rounded border px-4 py-2" type="button">Cancelar</button>
               <button onClick={submitEdit} disabled={savingEdit} className="rounded px-4 py-2 text-white" type="button" style={{ backgroundColor: COLORS.primary }}>
                 {savingEdit ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewModalOpen && editingSchedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[0.5rem] bg-white p-6 shadow-2xl">
+            <button onClick={() => setViewModalOpen(false)} className="absolute right-4 top-4 text-gray-500 hover:text-gray-800" type="button">
+              <X />
+            </button>
+            <h3 className="mb-4 text-lg font-semibold" style={{ color: COLORS.onSurface }}>Detalhes do Agendamento</h3>
+            
+            {/* Informações Gerais */}
+            <div className="mb-6 rounded-[0.5rem] border p-4" style={{ borderColor: COLORS.outlineVariant, backgroundColor: COLORS.surfaceContainerLow }}>
+              <h4 className="mb-3 text-base font-semibold" style={{ color: COLORS.onSurface }}>Informações Gerais</h4>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[#444653]">Empresa</span>
+                  <span className="text-[14px] font-semibold text-[#0b1c30]">{getCompanyName(editingSchedule.company_id)}</span>
+                </div>
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[#444653]">UF</span>
+                  <span className="text-[14px] font-semibold text-[#0b1c30]">{formatUf(editingSchedule.uf)}</span>
+                </div>
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[#444653]">Data do Agendamento</span>
+                  <span className="text-[14px] font-semibold text-[#0b1c30]">{formatDate(editingSchedule.schedule_date)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Capacidades */}
+            <div className="mb-6">
+              <h4 className="mb-2 text-base font-semibold" style={{ color: COLORS.onSurface }}>Capacidade por Perfil</h4>
+              {editingSchedule.capacities && editingSchedule.capacities.length > 0 ? (
+                <div className="divide-y rounded-[0.5rem] border" style={{ borderColor: COLORS.outlineVariant }}>
+                  {editingSchedule.capacities.map((cap, idx) => (
+                    <div key={idx} className="flex justify-between p-3 text-sm">
+                      <span className="font-medium text-[#444653]">{cap.profile_name}</span>
+                      <span className="font-semibold text-[#0b1c30]">{cap.vehicle_count} veículos | {formatKg(cap.total_weight_kg || cap.weight || 0)} kg</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 italic">Nenhuma capacidade definida</p>
+              )}
+            </div>
+
+            {/* Categorias / Status */}
+            <div className="mb-6">
+              <h4 className="mb-2 text-base font-semibold" style={{ color: COLORS.onSurface }}>Veículos por Categoria</h4>
+              {editingSchedule.categories && editingSchedule.categories.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {editingSchedule.categories.map((cat, idx) => (
+                    <div key={idx} className="rounded-[0.5rem] border p-3" style={{ borderColor: COLORS.outlineVariant }}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-semibold text-[#0b1c30]">{cat.category_name}</span>
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-[#00288e]">{cat.count} veículos</span>
+                      </div>
+                      {/* Caso de Perdidas com items adicionais */}
+                      {cat.category_name === 'Perdidas' && cat.items && cat.items.length > 0 && (
+                        <div className="mt-2 space-y-2 border-t pt-2 text-xs">
+                          {cat.items.map((item, itemIdx) => (
+                            <div key={itemIdx} className="bg-red-50 p-2 rounded border border-red-100">
+                              <div className="flex justify-between">
+                                <span className="font-semibold">Placa: {item.plate || 'N/A'}</span>
+                                <span className="font-semibold text-red-700">{item.count} veículos</span>
+                              </div>
+                              <p className="text-gray-600 mt-1">Perfil: {item.profile_name || 'N/A'}</p>
+                              <p className="text-gray-600">Motivo: {item.reason || 'N/A'}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 italic">Nenhum status detalhado</p>
+              )}
+            </div>
+
+            <div className="flex justify-end border-t pt-4">
+              <button
+                onClick={() => setViewModalOpen(false)}
+                className="rounded-[0.5rem] px-5 py-2 text-[13px] font-bold text-white hover:opacity-90 transition-opacity"
+                type="button"
+                style={{ backgroundColor: COLORS.primary }}
+              >
+                Fechar
               </button>
             </div>
           </div>
