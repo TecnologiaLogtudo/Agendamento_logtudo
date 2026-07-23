@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2, X } from 'lucide-react'
 import { normalizeCategoryResponse, getFallbackCategories } from '../constants/categories'
 
@@ -41,7 +42,24 @@ function MaterialIcon({ children, className = '', fill = false, style = {} }) {
   )
 }
 
+const getFirstDayOfMonth = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}-01`
+}
+
+const getLastDayOfMonth = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const lastDay = new Date(year, month, 0).getDate()
+  const formattedMonth = String(month).padStart(2, '0')
+  return `${year}-${formattedMonth}-${String(lastDay).padStart(2, '0')}`
+}
+
 function ScheduleList() {
+  const navigate = useNavigate()
   const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
@@ -49,8 +67,8 @@ function ScheduleList() {
 
   const [companyFilter, setCompanyFilter] = useState('')
   const [ufFilter, setUfFilter] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState(getFirstDayOfMonth())
+  const [endDate, setEndDate] = useState(getLastDayOfMonth())
 
   const [isAdmin, setIsAdmin] = useState(false)
   const [companies, setCompanies] = useState([])
@@ -424,35 +442,23 @@ function ScheduleList() {
       info: 'Percentual estimado de veículos sem status Perdidas: (total de veículos - viagens perdidas) dividido pelo total de veículos.',
     },
     {
-      label: 'Volume Total (kg)',
-      value: totalCapacity > 999999 ? `${(totalCapacity / 1000000).toFixed(1)}M` : formatKg(totalCapacity),
-      icon: 'scale',
+      label: 'Quantidade de veículos',
+      value: totalVehicles.toLocaleString('pt-BR'),
+      icon: 'local_shipping',
       iconColor: COLORS.tertiary,
       iconBg: COLORS.tertiaryFixed,
       trend: '4%',
       trendColor: COLORS.onSecondaryFixedVariant,
       fill: '60%',
       barColor: COLORS.tertiary,
-      info: 'Soma de total_capacity_kg de todos os agendamentos carregados na página.',
-    },
-    {
-      label: 'Custo Médio',
-      value: `R$ ${formatKg(averageCapacity)}`,
-      icon: 'payments',
-      iconColor: COLORS.error,
-      iconBg: COLORS.errorContainer,
-      trend: '2.1%',
-      trendColor: COLORS.error,
-      fill: '40%',
-      barColor: COLORS.error,
-      info: 'Média simples de disponibilidade por agendamento: volume total em kg dividido pelo número de registros.',
+      info: 'Soma do total de veículos de todos os agendamentos carregados na página.',
     },
   ]
 
   const companySummary = companies
     .map((company) => {
       const companySchedules = schedules.filter((schedule) => schedule.company_id === company.id)
-      const value = companySchedules.reduce((sum, schedule) => sum + (schedule.total_capacity_kg || 0), 0)
+      const value = companySchedules.reduce((sum, schedule) => sum + (schedule.total_vehicles || 0), 0)
       return { name: company.name, value }
     })
     .filter((item) => item.value > 0)
@@ -461,10 +467,10 @@ function ScheduleList() {
 
   const maxCompanyValue = Math.max(...companySummary.map((item) => item.value), 1)
   const fallbackCompanySummary = [
-    { name: 'Logística Alfa S.A.', value: 3450 },
-    { name: 'TransBeta Brasil', value: 2120 },
-    { name: 'Nacional Express', value: 1890 },
-    { name: 'Sul Cargas LTDA', value: 980 },
+    { name: 'Logística Alfa S.A.', value: 34 },
+    { name: 'TransBeta Brasil', value: 21 },
+    { name: 'Nacional Express', value: 18 },
+    { name: 'Sul Cargas LTDA', value: 9 },
   ]
   const companyBars = companySummary.length ? companySummary : fallbackCompanySummary
 
@@ -631,47 +637,90 @@ function ScheduleList() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="relative p-2 transition-colors hover:text-[#00288e]" type="button" style={{ color: COLORS.onSurfaceVariant }}>
-            <MaterialIcon>notifications</MaterialIcon>
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full" style={{ backgroundColor: COLORS.error }} />
-          </button>
-          <button
-            className="hidden sm:block p-2 transition-colors hover:text-[#00288e]"
-            type="button"
-            onClick={() => setShowFilters((value) => !value)}
-            style={{ color: COLORS.onSurfaceVariant }}
-          >
-            <MaterialIcon>filter_list</MaterialIcon>
-          </button>
-          <button className="hidden sm:block p-2 transition-colors hover:text-[#00288e]" type="button" style={{ color: COLORS.onSurfaceVariant }}>
-            <MaterialIcon>help</MaterialIcon>
-          </button>
-          <div className="hidden sm:block h-6 w-px mx-2" style={{ backgroundColor: COLORS.outlineVariant }} />
-          <button
-            className="hidden lg:block rounded-[0.375rem] px-3 py-1.5 text-[12px] leading-4 font-semibold transition-colors hover:bg-[#e5eeff]"
-            type="button"
-            style={{ color: COLORS.primary }}
-          >
-            Support
-          </button>
           <button
             className="hidden sm:block rounded-[0.5rem] px-4 py-2 text-[12px] leading-4 font-semibold shadow-sm transition-colors hover:bg-[#1e40af]"
             type="button"
+            onClick={() => navigate('/novo')}
             style={{ backgroundColor: COLORS.primary, color: COLORS.onPrimary }}
           >
-            New Entry
+            Novo Agendamento
           </button>
           <div
-            className="ml-2 h-8 w-8 cursor-pointer overflow-hidden rounded-full border shadow-sm flex items-center justify-center text-sm font-bold"
+            className="ml-2 h-8 w-8 cursor-default overflow-hidden rounded-full border shadow-sm flex items-center justify-center text-sm font-bold"
             style={{ backgroundColor: COLORS.secondary, borderColor: COLORS.outlineVariant, color: '#fefcff' }}
+            title="Usuário logado"
           >
             GL
           </div>
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-[1440px] mx-auto p-4 md:p-8 flex flex-col gap-8">
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <main className="flex-1 w-full max-w-[1440px] mx-auto p-4 md:p-8 flex flex-col gap-6">
+        {/* Barra de Filtros no Topo */}
+        <div className="rounded-[0.5rem] border p-4 shadow-sm" style={{ backgroundColor: COLORS.surfaceContainerLow, borderColor: COLORS.outlineVariant }}>
+          <form
+            onSubmit={handleFilter}
+            className="flex flex-wrap items-center gap-4"
+          >
+            <div className="flex-1 min-w-[200px]">
+              <select
+                value={companyFilter}
+                onChange={(e) => setCompanyFilter(e.target.value)}
+                className="w-full rounded-[0.5rem] border px-3 py-2 text-[14px]"
+                style={{ borderColor: COLORS.outlineVariant, backgroundColor: COLORS.surfaceContainerLowest, color: COLORS.onSurface }}
+              >
+                <option value="">Empresa: Todas</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="w-40">
+              <select
+                value={ufFilter}
+                onChange={(e) => setUfFilter(e.target.value)}
+                className="w-full rounded-[0.5rem] border px-3 py-2 text-[14px]"
+                style={{ borderColor: COLORS.outlineVariant, backgroundColor: COLORS.surfaceContainerLowest, color: COLORS.onSurface }}
+              >
+                <option value="">UF: Todas</option>
+                {ufs.map((uf) => (
+                  <option key={uf} value={uf}>
+                    {uf}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="rounded-[0.5rem] border px-3 py-2 text-[14px]"
+                style={{ borderColor: COLORS.outlineVariant, backgroundColor: COLORS.surfaceContainerLowest, color: COLORS.onSurface }}
+              />
+              <span className="text-[14px]" style={{ color: COLORS.onSurfaceVariant }}>até</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="rounded-[0.5rem] border px-3 py-2 text-[14px]"
+                style={{ borderColor: COLORS.outlineVariant, backgroundColor: COLORS.surfaceContainerLowest, color: COLORS.onSurface }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button className="rounded-[0.5rem] px-4 py-2 text-[12px] font-semibold transition-colors hover:opacity-90" type="submit" style={{ backgroundColor: COLORS.primary, color: COLORS.onPrimary }}>
+                Aplicar
+              </button>
+              <button className="rounded-[0.5rem] border px-4 py-2 text-[12px] font-semibold transition-colors hover:bg-white/40" type="button" onClick={clearFilters} style={{ borderColor: COLORS.outlineVariant, color: COLORS.onSurface }}>
+                Limpar
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {kpiCards.map((card) => (
             <div
               key={card.label}
@@ -784,7 +833,7 @@ function ScheduleList() {
                     <div className="mb-1 flex justify-between text-[14px] leading-5 font-normal" style={{ color: COLORS.onSurface }}>
                       <span>{bar.name}</span>
                       <span className="font-mono text-[14px] leading-5 font-medium" style={{ color: COLORS.onSurfaceVariant }}>
-                        {formatKg(bar.value)} kg
+                        {bar.value.toLocaleString('pt-BR')} veículos
                       </span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-[0.75rem]" style={{ backgroundColor: COLORS.surfaceContainer }}>
@@ -809,29 +858,9 @@ function ScheduleList() {
               <MaterialIcon className="text-[#00288e]">list_alt</MaterialIcon>
               Registros Detalhados
             </h3>
-            <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+            <div className="flex w-full flex-wrap items-center gap-2 md:w-auto ml-auto">
               <button
-                className="flex cursor-pointer items-center gap-2 rounded-[0.5rem] border px-3 py-1.5 text-[14px] leading-5 font-normal transition-colors hover:border-[#00288e]"
-                type="button"
-                onClick={() => setShowFilters((value) => !value)}
-                style={{ backgroundColor: COLORS.surface, borderColor: COLORS.outlineVariant, color: COLORS.onSurfaceVariant }}
-              >
-                <MaterialIcon className="text-sm">calendar_today</MaterialIcon>
-                <span>Últimos 30 Dias</span>
-                <MaterialIcon className="ml-2 text-sm">expand_more</MaterialIcon>
-              </button>
-              <button
-                className="flex cursor-pointer items-center gap-2 rounded-[0.5rem] border px-3 py-1.5 text-[14px] leading-5 font-normal transition-colors hover:border-[#00288e]"
-                type="button"
-                onClick={() => setShowFilters((value) => !value)}
-                style={{ backgroundColor: COLORS.surface, borderColor: COLORS.outlineVariant, color: COLORS.onSurfaceVariant }}
-              >
-                <MaterialIcon className="text-sm">filter_alt</MaterialIcon>
-                <span>Status</span>
-                <MaterialIcon className="ml-2 text-sm">expand_more</MaterialIcon>
-              </button>
-              <button
-                className="ml-auto md:ml-2 flex items-center gap-2 rounded-[0.5rem] border px-3 py-1.5 text-[12px] leading-4 font-semibold transition-colors hover:bg-[#eff4ff]"
+                className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-1.5 text-[12px] leading-4 font-semibold transition-colors hover:bg-[#eff4ff]"
                 type="button"
                 onClick={handleExport}
                 style={{ backgroundColor: COLORS.surface, borderColor: COLORS.outlineVariant, color: COLORS.onSurface }}
@@ -841,63 +870,6 @@ function ScheduleList() {
               </button>
             </div>
           </div>
-
-          {showFilters && (
-            <form
-              onSubmit={handleFilter}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 border-b p-4"
-              style={{ backgroundColor: COLORS.surfaceContainerLow, borderColor: COLORS.outlineVariant }}
-            >
-              <select
-                value={companyFilter}
-                onChange={(e) => setCompanyFilter(e.target.value)}
-                className="rounded-[0.5rem] border px-3 py-2 text-[14px]"
-                style={{ borderColor: COLORS.outlineVariant, color: COLORS.onSurface }}
-              >
-                <option value="">Empresa: Todas</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={ufFilter}
-                onChange={(e) => setUfFilter(e.target.value)}
-                className="rounded-[0.5rem] border px-3 py-2 text-[14px]"
-                style={{ borderColor: COLORS.outlineVariant, color: COLORS.onSurface }}
-              >
-                <option value="">UF: Todas</option>
-                {ufs.map((uf) => (
-                  <option key={uf} value={uf}>
-                    {uf}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="rounded-[0.5rem] border px-3 py-2 text-[14px]"
-                style={{ borderColor: COLORS.outlineVariant, color: COLORS.onSurface }}
-              />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="rounded-[0.5rem] border px-3 py-2 text-[14px]"
-                style={{ borderColor: COLORS.outlineVariant, color: COLORS.onSurface }}
-              />
-              <div className="flex gap-2">
-                <button className="flex-1 rounded-[0.5rem] px-3 py-2 text-[12px] font-semibold" type="submit" style={{ backgroundColor: COLORS.primary, color: COLORS.onPrimary }}>
-                  Aplicar
-                </button>
-                <button className="flex-1 rounded-[0.5rem] border px-3 py-2 text-[12px] font-semibold" type="button" onClick={clearFilters} style={{ borderColor: COLORS.outlineVariant }}>
-                  Limpar
-                </button>
-              </div>
-            </form>
-          )}
 
           <div className="flex-1 overflow-x-auto">
             {loading ? (
