@@ -20,7 +20,16 @@ const getLastDayOfMonth = () => {
   return `${year}-${formattedMonth}-${String(lastDay).padStart(2, '0')}`
 }
 
-const COLORS = ['#00288e', '#0058be', '#1e40af', '#2170e4', '#872d00', '#ba1a1a', '#d3e4fe', '#ffdad6']
+const COLORS = [
+  '#00288e', // Azul Logtudo
+  '#006a60', // Teal/Verde escuro
+  '#a25000', // Laranja/Amber
+  '#653cbd', // Roxo/Violeta
+  '#872d00', // Terracota
+  '#0058be', // Azul médio
+  '#606a16', // Verde Oliva
+  '#475569', // Slate
+]
 
 function Dashboard() {
   const [metrics, setMetrics] = useState(null)
