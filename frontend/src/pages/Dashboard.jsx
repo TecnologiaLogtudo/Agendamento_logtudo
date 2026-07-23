@@ -1126,7 +1126,6 @@ function Dashboard() {
                 <th className="px-6 py-4">Empresa</th>
                 <th className="px-6 py-4">UF</th>
                 <th className="px-6 py-4">Veículos</th>
-                <th className="px-6 py-4">Disponibilidade</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
@@ -1143,7 +1142,6 @@ function Dashboard() {
                   <td className="px-6 py-4">{getCompanyName(schedule.company_id)}</td>
                   <td className="px-6 py-4">{formatUf(schedule.uf)}</td>
                   <td className="px-6 py-4 font-mono text-[#00288e]">{formatNumber(schedule.total_vehicles)}</td>
-                  <td className="px-6 py-4 font-mono text-[#00288e]">{formatKgFull(schedule.total_capacity_kg)} kg</td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
                       {schedule.categories.map((cat) => {
