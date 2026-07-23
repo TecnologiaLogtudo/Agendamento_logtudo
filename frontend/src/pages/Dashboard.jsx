@@ -4,6 +4,22 @@ import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Compose
 import { X, Plus, Trash2 } from 'lucide-react'
 import { normalizeCategoryResponse, getFallbackCategories } from '../constants/categories'
 
+const getFirstDayOfMonth = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}-01`
+}
+
+const getLastDayOfMonth = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const lastDay = new Date(year, month, 0).getDate()
+  const formattedMonth = String(month).padStart(2, '0')
+  return `${year}-${formattedMonth}-${String(lastDay).padStart(2, '0')}`
+}
+
 const COLORS = ['#00288e', '#0058be', '#1e40af', '#2170e4', '#872d00', '#ba1a1a', '#d3e4fe', '#ffdad6']
 
 function Dashboard() {
@@ -13,8 +29,8 @@ function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [dateFiltersOpen, setDateFiltersOpen] = useState(false)
   const [companyFilter, setCompanyFilter] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState(getFirstDayOfMonth())
+  const [endDate, setEndDate] = useState(getLastDayOfMonth())
   const [profileFilter, setProfileFilter] = useState('')
   const [ufFilter, setUfFilter] = useState('')
   const [companies, setCompanies] = useState([])
@@ -531,21 +547,22 @@ function Dashboard() {
 
   const categoryDistribution = metrics?.categories_distribution || []
   const totalStatusCount = categoryDistribution.reduce((sum, item) => sum + (Number(item.count) || 0), 0)
-  const statusCards = categoryDistribution.map((item) => {
-    const visual = getStatusVisual(item.category)
-    const count = Number(item.count) || 0
-    const percent = totalStatusCount ? (count / totalStatusCount) * 100 : 0
-    return {
-      label: item.category,
-      value: `${Math.round(percent)}%`,
-      count,
-      flexGrow: Math.max(count, 1),
-      flexBasis: `${Math.max(percent, 16)}%`,
-      bg: visual.bg,
-      text: visual.text,
-      small: item.category.length > 10,
-    }
-  })
+  const statusCards = categoryDistribution
+    .map((item) => {
+      const visual = getStatusVisual(item.category)
+      const count = Number(item.count) || 0
+      const percent = totalStatusCount ? (count / totalStatusCount) * 100 : 0
+      return {
+        label: item.category,
+        value: `${Math.round(percent)}%`,
+        count,
+        percent,
+        bg: visual.bg,
+        text: visual.text,
+        small: item.category.length > 10,
+      }
+    })
+    .sort((a, b) => b.count - a.count)
 
   const filteredSchedulesForRegion = schedules.filter((schedule) => {
     if (!profileFilter) return true
@@ -778,18 +795,20 @@ function Dashboard() {
         <div className="col-span-12 rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] p-6 tonal-elevation lg:col-span-5">
           <h2 className="mb-6 text-[20px] font-semibold text-[#0b1c30]">Distribuição por Status</h2>
           {statusCards.length > 0 ? (
-            <div className="flex h-56 w-full flex-wrap content-stretch gap-1 overflow-hidden rounded-lg">
+            <div className="flex h-56 w-full gap-1 overflow-hidden rounded-lg">
               {statusCards.map((status) => (
                 <div
                   key={status.label}
-                  className="flex min-h-[72px] min-w-[96px] flex-col justify-end rounded-lg p-2"
+                  className="flex min-h-[72px] flex-col justify-end rounded-lg p-2 transition-all duration-300 hover:opacity-90"
                   title={`${status.label}: ${formatNumber(status.count)}`}
                   aria-label={`${status.label}: ${formatNumber(status.count)} veículos, ${status.value}`}
                   style={{
                     backgroundColor: status.bg,
                     color: status.text,
-                    flexGrow: status.flexGrow,
-                    flexBasis: status.flexBasis,
+                    flexGrow: status.percent,
+                    flexBasis: `${status.percent}%`,
+                    minWidth: status.percent > 0 ? '70px' : '0px',
+                    display: status.percent > 0 ? 'flex' : 'none',
                   }}
                 >
                   <span className={`text-[8px] font-bold uppercase opacity-80 ${status.small ? 'leading-tight' : ''}`}>

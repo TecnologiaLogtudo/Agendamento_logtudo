@@ -110,9 +110,7 @@ function NewSchedule() {
     try {
       const res = await axios.get('/api/categories')
       const normalized = normalizeCategoryResponse(res.data)
-      const names = normalized.map((cat) => cat.name)
-      
-      names = names.filter(n => n !== 'Indisponíveis')
+      const names = normalized.map((cat) => cat.name).filter(n => n !== 'Indisponíveis')
 
       if (!names.includes('Spot disponibilizado')) {
         names.push('Spot disponibilizado')
