@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line } from 'recharts'
+import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line, Treemap } from 'recharts'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { normalizeCategoryResponse, getFallbackCategories } from '../constants/categories'
 
@@ -18,6 +18,129 @@ const getLastDayOfMonth = () => {
   const lastDay = new Date(year, month, 0).getDate()
   const formattedMonth = String(month).padStart(2, '0')
   return `${year}-${formattedMonth}-${String(lastDay).padStart(2, '0')}`
+}
+
+const CustomizedTreemapContent = (props) => {
+  const { x, y, width, height, name, bg, text, value, percent } = props
+
+  if (width < 35 || height < 20) return null
+
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        style={{
+          fill: bg,
+          stroke: '#fff',
+          strokeWidth: 2,
+          rx: 8,
+          ry: 8,
+        }}
+      />
+      {width > 65 && height > 35 && (
+        <text
+          x={x + 10}
+          y={y + 22}
+          fill={text}
+          fontSize={11}
+          fontWeight="bold"
+          textAnchor="start"
+          className="uppercase opacity-90"
+        >
+          {name}
+        </text>
+      )}
+      {width > 50 && height > 45 && (
+        <text
+          x={x + 10}
+          y={y + height - 26}
+          fill={text}
+          fontSize={16}
+          fontWeight="bold"
+          textAnchor="start"
+        >
+          {value}
+        </text>
+      )}
+      {width > 50 && height > 24 && (
+        <text
+          x={x + 10}
+          y={y + height - 10}
+          fill={text}
+          fontSize={10}
+          fontWeight="bold"
+          textAnchor="start"
+          className="opacity-80"
+        >
+          {percent}%
+        </text>
+      )}
+    </g>
+  )
+}
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null
+
+  const grouped = {}
+  
+  payload.forEach((item) => {
+    let companyName = item.name
+    let isMeta = false
+    
+    if (companyName.startsWith('Meta ')) {
+      companyName = companyName.replace('Meta ', '')
+      isMeta = true
+    } else if (companyName === 'Meta Diária') {
+      companyName = 'Geral'
+      isMeta = true
+    } else if (companyName === 'Realizado') {
+      companyName = 'Geral'
+      isMeta = false
+    }
+    
+    if (!grouped[companyName]) {
+      grouped[companyName] = { realized: null, meta: null, colorRealized: null, colorMeta: null }
+    }
+    
+    if (isMeta) {
+      grouped[companyName].meta = item.value
+      grouped[companyName].colorMeta = item.stroke || item.color
+    } else {
+      grouped[companyName].realized = item.value
+      grouped[companyName].colorRealized = item.fill || item.color
+    }
+  })
+
+  return (
+    <div className="rounded-lg border border-[#c4c5d5] bg-white p-3 shadow-lg text-[13px]" style={{ minWidth: '180px' }}>
+      <p className="mb-2 font-bold text-[#0b1c30]">{label}</p>
+      <div className="space-y-3">
+        {Object.entries(grouped).map(([companyName, data]) => (
+          <div key={companyName} className="border-t border-gray-100 pt-2 first:border-0 first:pt-0">
+            <p className="font-bold text-[#00288e]">{companyName}</p>
+            <div className="ml-2 mt-1 space-y-0.5 font-medium text-gray-700">
+              {data.realized !== null && (
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: data.colorRealized || '#00288e' }} />
+                  <span>Realizado: <strong className="text-[#0b1c30]">{data.realized}</strong></span>
+                </div>
+              )}
+              {data.meta !== null && (
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full border border-dashed" style={{ borderColor: data.colorMeta || '#ba1a1a' }} />
+                  <span>Meta: <strong className="text-[#0b1c30]">{data.meta}</strong></span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 const COLORS = [
@@ -804,29 +927,22 @@ function Dashboard() {
         <div className="col-span-12 rounded-xl border border-[#c4c5d5] bg-[#f8f9ff] p-6 tonal-elevation lg:col-span-5">
           <h2 className="mb-6 text-[20px] font-semibold text-[#0b1c30]">Distribuição por Status</h2>
           {statusCards.length > 0 ? (
-            <div className="flex h-56 w-full gap-1 overflow-hidden rounded-lg">
-              {statusCards.map((status) => (
-                <div
-                  key={status.label}
-                  className="flex min-h-[72px] flex-col justify-end rounded-lg p-2 transition-all duration-300 hover:opacity-90"
-                  title={`${status.label}: ${formatNumber(status.count)}`}
-                  aria-label={`${status.label}: ${formatNumber(status.count)} veículos, ${status.value}`}
-                  style={{
-                    backgroundColor: status.bg,
-                    color: status.text,
-                    flexGrow: status.percent,
-                    flexBasis: `${status.percent}%`,
-                    minWidth: status.percent > 0 ? '70px' : '0px',
-                    display: status.percent > 0 ? 'flex' : 'none',
-                  }}
-                >
-                  <span className={`text-[8px] font-bold uppercase opacity-80 ${status.small ? 'leading-tight' : ''}`}>
-                    {status.label}
-                  </span>
-                  <span className={`font-bold ${status.small ? 'text-xs' : ''}`}>{status.value}</span>
-                  <span className="text-[10px] font-bold opacity-80">{formatNumber(status.count)}</span>
-                </div>
-              ))}
+            <div className="h-56 w-full rounded-lg overflow-hidden">
+              <ResponsiveContainer width="100%" height="100%">
+                <Treemap
+                  data={statusCards.map((status) => ({
+                    name: status.label,
+                    size: status.count,
+                    bg: status.bg,
+                    text: status.text,
+                    value: status.value,
+                    percent: Math.round(status.percent),
+                  }))}
+                  dataKey="size"
+                  stroke="#fff"
+                  content={<CustomizedTreemapContent />}
+                />
+              </ResponsiveContainer>
             </div>
           ) : (
             <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-[#c4c5d5] text-[14px] font-semibold text-[#444653]">
@@ -962,7 +1078,7 @@ function Dashboard() {
                 <CartesianGrid stroke="#d3e4fe" strokeDasharray="3 3" />
                 <XAxis dataKey="displayDate" stroke="#444653" />
                 <YAxis stroke="#444653" />
-                <Tooltip />
+                <Tooltip content={<CustomTooltip />} />
                 {companyFilter ? (
                   <>
                     <Bar dataKey="realizado" fill="#00288e" name="Realizado" barSize={20} radius={[4, 4, 0, 0]} />
